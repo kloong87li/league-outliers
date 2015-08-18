@@ -9,6 +9,7 @@ class ApiRequest():
   def execute(self, api_fn):
     # Could raise RiotApiException or RiotRateLimitException
     self._data = api_fn()
+    self._done_event.set()
 
   def wait(self, timeout=None):
     return self._done_event.wait(timeout)
