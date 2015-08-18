@@ -1,6 +1,6 @@
 import threading
 import functools
-from Queue import Queue, Empty
+from Queue import Queue, Empty, Full
 from concurrent.futures import ThreadPoolExecutor
 
 from .api import RiotApiException, RiotRateLimitException
@@ -16,7 +16,7 @@ class RiotApiScheduler():
     self._queue = Queue(maxsize=RiotApiScheduler.MAX_QSIZE)
 
     self._backoff = None  # guarded by lock
-    self._next_sleep = 60 / RiotApiScheduler.REQ_PER_MIN  # initial sleep period
+    self._next_sleep = 60.0 / RiotApiScheduler.REQ_PER_MIN  # initial sleep period
 
   def _process_request(self, req):
     try:
@@ -48,9 +48,14 @@ class RiotApiScheduler():
       self._timer.start()
     return
 
-  def add_request(self, req, timeout=None):
+  def add_request(self, req, timeout=1):
     # should block if full, raises Full exception if times out
-    self._queue.put(req, True, timeout)
+    while self._is_running:
+      try:
+        self._queue.put(req, True, timeout)
+        return
+      except Full:
+        continue
 
   def start(self):
     self._is_running = True

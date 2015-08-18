@@ -9,5 +9,13 @@ if __name__ == "__main__":
     x.stop()
   signal.signal(signal.SIGINT, stop)
 
-  
-  
+  # x = RiotApiScheduler()
+
+
+
+
+
+  # x.start()
+
+  # for i in xrange(3000):
+  #   x.add_request(i)
