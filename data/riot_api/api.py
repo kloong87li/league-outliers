@@ -1,26 +1,12 @@
 import urllib, json
 from .api_key import API_KEY
+from .exception import RiotRateLimitException, RiotApiException
 
-class RiotApiException(Exception):
-  def __init__(self, status_code, info):
-    self.status_code = status_code
-    self.info = info
-
-  def __str__():
-    return "Riot API returned status code: %d" % self.status_code
-
-class RiotRateLimitException(Exception):
-  def __init__(self, limi_type, retry_after):
-    self.retry_after = retry_after
-    self.limi_type = limit_type
-
-  def __str__():
-    return "Riot API indicated rate limit reached, retry after: %d" % self.retry_after
-
-class RiotApi():
+class RiotApi(object):
 
   _FORMAT_URL = "https://na.api.pvp.net/api/lol/{region}/v{version}/{endpoint}?{query_params}"
   _REGION = "na"
+  _DEFAULT_BACKOFF = 5
 
   @staticmethod
   def _get(full_url):
@@ -34,10 +20,10 @@ class RiotApi():
     elif status == 429:
       info = resp.info()
       limit_type = info.getheader("X-Rate-Limit-Type")
-      retry_after = info.getheader("Retry-After")
-      raise RiotRateLimitException(limit_type, retry_after)
+      retry_after = info.getheader("Retry-After") or RiotApi._DEFAULT_BACKOFF
+      raise RiotRateLimitException(limit_type, float(retry_after))
     else:
-      raise RiotApiException(status_code, resp.info())
+      raise RiotApiException(status, resp.info(), full_url)
 
   @staticmethod
   def _get_api_url(endpoint, version, query_params=None):
@@ -60,14 +46,16 @@ class RiotApi():
 
   @staticmethod
   def get_match(match_id, includeTimeline=True):
+    print "[API] Getting match: %r" % match_id
     params = {
-    "includeTimeline": includeTimeline
+      "includeTimeline": includeTimeline
     }
-    url = RiotApi._get_api_url("match/%s" % match_id, 1.4, params)
+    url = RiotApi._get_api_url("match/%s" % match_id, 2.2, params)
     return RiotApi._get(url)
 
   @staticmethod
   def get_matches(summoner_id, query_params=None):
+    print "[API] Getting matches for %r" % summoner_id
     url = RiotApi._get_api_url("matchlist/by-summoner/%s" % summoner_id, 2.2, query_params)
     return RiotApi._get(url)
 
