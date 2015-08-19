@@ -68,7 +68,9 @@ class PlayerWorker(Worker):
 
     data = request.get_data()
     if data is None:
-      print "!! [PLAYER_WORKER] Lost data for: %s" % player["summonerName"]
+      # TODO, reset player if request didnt finish
+      print "!! [PLAYER_WORKER] Failed to get player: %s, returning to DB" % player["summonerName"]
+      self._player_db.return_player(player)
       return
 
     # Update db and queue

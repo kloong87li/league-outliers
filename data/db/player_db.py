@@ -17,6 +17,7 @@ class PlayerDb(object):
     )
 
   def find_stale(self, last_update):
+    # TODO to guarantee no repeats but potential data loss
     return self._players.find_one_and_update(
       {"last_update": {"$lt": last_update}},
       {"$set": {"last_update": last_update}}
@@ -39,5 +40,11 @@ class PlayerDb(object):
       upsert=True
     )
     return player
+
+  def return_player(self, player):
+    self._players.update(
+      {"summonerId": player["summonerId"]},
+      {"$set": {"last_update": player["last_update"]}}
+    )
 
 
