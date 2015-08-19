@@ -6,7 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 from .exception import RiotApiException, RiotRateLimitException
 
 class RiotApiScheduler(object):
-  MAX_QSIZE = 20
+  MAX_QSIZE = 25
   REQ_PER_MIN = 50
   _DEFAULT_DUPE_BACKOFF = 1
 
@@ -22,20 +22,23 @@ class RiotApiScheduler(object):
 
   def _process_request(self, req):
     try:
-      req.execute()
-    except RiotRateLimitException as e:
-      print "[API Rate Limit] Type: %r, Retry after: %r" % (e.limit_type, e.retry_after)
-      with self._lock:
-        if self._backoff == None:
-          self._backoff = e.retry_after
-        else:
-          self.backoff = RiotApiScheduler._DEFAULT_DUPE_BACKOFF
-      req.mark_invalid()
-    except RiotApiException as e:
-      print "[API Exception] Code: %r for url: %r" % (e.status_code, e.url)
-      req.mark_invalid()
+      try:
+        req.execute()
+      except RiotRateLimitException as e:
+        print "!! [API Rate Limit] Type: %r, Retry after: %r" % (e.limit_type, e.retry_after)
+        with self._lock:
+          if self._backoff == None:
+            self._backoff = e.retry_after
+          else:
+            self.backoff = RiotApiScheduler._DEFAULT_DUPE_BACKOFF
+        req.mark_invalid()
+      except RiotApiException as e:
+        print "!! [API Exception] Code: %r for url: %r" % (e.status_code, e.url)
+        req.mark_invalid()
+      except Exception as e:
+        print "!! [RANDOM EXCEPTION] %r" % e
     except Exception as e:
-      print "[RANDOM EXCEPTION] %r" % e
+      print "!! [RANDOM EXCEPTION] %r" % e
 
   def _run(self):
     # TODO optimize to take better advantage of api limit

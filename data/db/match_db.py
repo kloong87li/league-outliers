@@ -5,9 +5,29 @@ class MatchDb(object):
     self._matches = match_collection
     return
 
+  def insert_ref(self, match_ref):
+    match_ref.update({"is_ref": True})
+    self._matches.insert(match_ref)
+
   def insert(self, match):
-    print "[MATCHES] Inserted match %s" % match["matchId"]
-    self._matches.insert_one(match)
+    match.update({"is_ref": False})
+    self._matches.replace_one(
+      {"matchId": match["matchId"]},
+      match,
+      upsert=True
+    )
 
   def contains(self, match_ref):
     return bool(self._matches.find_one({"matchId": match_ref["matchId"]}))
+
+  def find_needs_update(self):
+    return self._matches.find_one_and_update(
+      {"is_ref": True},
+      {"$set": {"is_ref": False}}
+    )
+
+  def return_match(self, match_ref):
+    self._matches.update(
+      {"matchId": match_ref["matchId"]},
+      {"$set": {"is_ref": True}}
+    )

@@ -3,10 +3,14 @@ from .api_key import API_KEY
 from .exception import RiotRateLimitException, RiotApiException
 
 class RiotApi(object):
-
+  _API_KEY = API_KEY
   _FORMAT_URL = "https://na.api.pvp.net/api/lol/{region}/v{version}/{endpoint}?{query_params}"
   _REGION = "na"
   _DEFAULT_BACKOFF = 5
+
+  @staticmethod
+  def set_api_key(key):
+    RiotApi._API_KEY = key
 
   @staticmethod
   def _get(full_url):
@@ -30,7 +34,7 @@ class RiotApi(object):
     if query_params is None:
       query_params = {}
 
-    query_params.update({"api_key": API_KEY})
+    query_params.update({"api_key": RiotApi._API_KEY})
     full_url = RiotApi._FORMAT_URL.format(
       region=RiotApi._REGION,
       version=version,
@@ -46,7 +50,6 @@ class RiotApi(object):
 
   @staticmethod
   def get_match(match_id, includeTimeline=True):
-    print "[API] Getting match: %r" % match_id
     params = {
       "includeTimeline": includeTimeline
     }
@@ -55,7 +58,6 @@ class RiotApi(object):
 
   @staticmethod
   def get_matches(summoner_id, query_params=None):
-    print "[API] Getting matches for %r" % summoner_id
     url = RiotApi._get_api_url("matchlist/by-summoner/%s" % summoner_id, 2.2, query_params)
     return RiotApi._get(url)
 

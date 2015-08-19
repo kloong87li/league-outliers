@@ -13,6 +13,7 @@ class PlayerWorker(Worker):
 
     self._api_scheduler = kwargs.pop("api_scheduler")
     self._player_db = kwargs.pop("player_db")
+    self._match_db = kwargs.pop("match_db")
     self._last_update = kwargs.pop("last_update")
     self._player_queue = kwargs.pop("player_queue") # Player
     self._match_queue = kwargs.pop("match_queue")  # MatchReference
@@ -28,26 +29,23 @@ class PlayerWorker(Worker):
   def _get_player_from_queue(self):
     try:
       player = self._player_queue.get(True, Worker._QUEUE_TIMEOUT)
-      player = self._player_db.find_or_create(player)
-      if player["last_update"] >= self._last_update:
-        return None
-      else:
-        return player
+      return player
     except Empty:
       return None
 
   def _get_next_player(self):
     player = None
-    while self._is_running and player is None:
-      if self._is_prioritize_new:
-        player = self._get_player_from_queue() or self._player_db.find_stale(self._last_update)
-      else:
-        player = self._player_db.find_stale(self._last_update) or self._get_player_from_queue()
+    if self._is_prioritize_new:
+      player = self._get_player_from_queue() or self._player_db.find_stale(self._last_update)
+    else:
+      player = self._player_db.find_stale(self._last_update) or self._get_player_from_queue()
     return player
 
   def _queue_matches(self, matches):
     for match_ref in matches:
-      self._match_queue.put(match_ref)
+      if not self._match_db.contains(match_ref):
+        self._match_db.insert_ref(match_ref)
+        self._match_queue.put(match_ref)
 
   def _perform_work(self):
     # Generate request
@@ -70,9 +68,12 @@ class PlayerWorker(Worker):
 
     data = request.get_data()
     if data is None:
+      print "!! [PLAYER_WORKER] Lost data for: %s" % player["summonerName"]
       return
 
     # Update db and queue
+    print ("[PLAYER_WORKER] Updated player %s with time %r (last update was %r)" %
+      (player["summonerName"], request.get_timestamp(), player["last_update"]))
     self._player_db.update_matches(player, request.get_timestamp())
     if data["totalGames"] > 0:
       self._queue_matches(data["matches"])
