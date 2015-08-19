@@ -45,6 +45,7 @@ class PlayerWorker(Worker):
     for match_ref in matches:
       if not self._match_db.contains(match_ref):
         self._match_db.insert_ref(match_ref)
+        # TODO doing duplicate work?
         self._match_queue.put(match_ref)
 
   def _perform_work(self):
@@ -74,8 +75,8 @@ class PlayerWorker(Worker):
       return
 
     # Update db and queue
-    print ("[PLAYER_WORKER] Updated player %s with time %r (last update was %r)" %
-      (player["summonerName"], request.get_timestamp(), player["last_update"]))
+    print ("[PLAYER_WORKER] Updated player '%s' (%s) with time %r (last update was %r)" %
+      (player["summonerName"], player["league"], request.get_timestamp(), player["last_update"]))
     self._player_db.update_matches(player, request.get_timestamp())
     if data["totalGames"] > 0:
       self._queue_matches(data["matches"])

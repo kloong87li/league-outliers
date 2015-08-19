@@ -17,7 +17,6 @@ class PlayerDb(object):
     )
 
   def find_stale(self, last_update):
-    # TODO to guarantee no repeats but potential data loss
     return self._players.find_one_and_update(
       {"last_update": {"$lt": last_update}},
       {"$set": {"last_update": last_update}}

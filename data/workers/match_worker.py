@@ -19,9 +19,40 @@ class MatchWorker(Worker):
     get = functools.partial(RiotApi.get_match, match_ref["matchId"])
     return ApiRequest(get)
 
+
+  def _get_leagues_for_players(self, players):
+    get = functools.partial(RiotApi.get_leagues, players)
+    request = ApiRequest(get)
+
+    self._make_request(request)
+
+    leagues = request.get_data()
+    return leagues or {}
+
+  def _get_league(self, league_map, player):
+    sid = str(player["summonerId"])
+    try:
+      leagues = league_map[sid]
+      for league in leagues:
+        if league["queue"] == "RANKED_SOLO_5x5":
+          return league["tier"]
+      return None
+    except KeyError:
+      return None
+
+  def _player_is_good(self, league):
+    return (league in ["CHALLENGER", "MASTER", "DIAMOND", "PLATINUM", "GOLD"])
+
   def _queue_players(self, players):
+    league_map = self._get_leagues_for_players(players)
+
     for player in players:
       try:
+        # Verify that player is good
+        player["league"] = self._get_league(league_map, player)
+        if not self._player_is_good(player["league"]):
+          return
+
         player = self._player_db.find_or_create(player)
         if player["last_update"] < self._last_update:
           self._player_queue.put(player, False)
@@ -31,17 +62,13 @@ class MatchWorker(Worker):
   def _get_next_match(self):
     match = None
     try:
-      match = self._match_db.find_needs_update() or self._match_queue.get(True, Worker._QUEUE_TIMEOUT)
+      # TODO add option to update old
+      match = self._match_queue.get(True, Worker._QUEUE_TIMEOUT) or self._match_db.find_needs_update()
       return match
     except Empty:
       return None
 
-  def _perform_work(self):
-    # Get next match from queue and generate request
-    match_ref = self._get_next_match()
-    if match_ref is None: return
-    request = self._generate_request(match_ref)
-
+  def _make_request(self, request):
     # Try to queue api request
     while self._is_running:
       try:
@@ -54,6 +81,14 @@ class MatchWorker(Worker):
     while self._is_running:
       if request.wait(Worker._API_REQUEST_TIMEOUT):
         break
+
+  def _perform_work(self):
+    # Get next match from queue and generate request    
+    match_ref = self._get_next_match()
+    if match_ref is None: return
+    request = self._generate_request(match_ref)
+
+    self._make_request(request)
 
     match = request.get_data()
     if match is None:

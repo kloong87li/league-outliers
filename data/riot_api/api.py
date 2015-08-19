@@ -61,6 +61,11 @@ class RiotApi(object):
     url = RiotApi._get_api_url("matchlist/by-summoner/%s" % summoner_id, 2.2, query_params)
     return RiotApi._get(url)
 
+  @staticmethod
+  def get_leagues(players):
+    summoner_ids = ",".join([str(p["summonerId"]) for p in players])
+    url = RiotApi._get_api_url("league/by-summoner/%s" % summoner_ids, 2.5)
+    return RiotApi._get(url)
 
 
 

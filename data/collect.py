@@ -1,3 +1,5 @@
+#!/usr/bin/python
+
 from riot_api import RiotApiScheduler, ApiRequest, RiotApi, API_KEY
 from workers import PlayerWorker, MatchWorker
 from db import PlayerDb, MatchDb
@@ -18,8 +20,8 @@ MAX_MATCH_QSIZE = 1500
 def main(argv):
   mongo_url = "mongodb://localhost:27017"
   last_update = datetime_to_timestamp(PlayerDb.EARLIEST_UPDATE) + 1
-  initial_seed = 22884498
-  is_prioritize_new = False
+  initial_seed = 49159160
+  update_old = False
   workers = [1, 1]
 
   # Parse commandline for last_update date, and thread numbers
@@ -27,7 +29,7 @@ def main(argv):
   parser.add_argument("-i", default=initial_seed, type=int, help="Initial summoner ID")
   parser.add_argument("-n", default=workers, nargs=2, type=int, help="# of pworkers and mworkers, respectively")
   parser.add_argument("-d", help="Starting date to fetch data for")   # TODO add commandline args
-  parser.add_argument("--new_players", action='store_true', help="Whether to prioritize gathering of new player data")
+  parser.add_argument("--update_old", action='store_true', help="Whether to prioritize gathering of new player data")
   parser.add_argument("--mongo", default=mongo_url, help="URL of MongoDB")
   parser.add_argument("--api_key", default=API_KEY, help="Riot API Key")
   args = parser.parse_args()
@@ -58,7 +60,8 @@ def main(argv):
       "matchHistoryUri": "/v1/stats/player_history/NA/36821626",
       "summonerName": "-INITIAL_SEED-",
       "summonerId": args.i,
-      "last_update": datetime_to_timestamp(PlayerDb.EARLIEST_UPDATE)
+      "last_update": datetime_to_timestamp(PlayerDb.EARLIEST_UPDATE),
+      "league": "GOLD"
    })
 
   # Register stop signal handler
@@ -74,7 +77,7 @@ def main(argv):
 
   for i in xrange(args.n[0]):
     worker = PlayerWorker(
-      is_prioritize_new=args.new_players,
+      is_prioritize_new=not args.update_old,
       api_scheduler=api_scheduler,
       player_db=player_db,
       match_db=match_db,
