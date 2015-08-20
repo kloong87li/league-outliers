@@ -43,6 +43,8 @@ class PlayerWorker(Worker):
 
   def _queue_matches(self, matches):
     for match_ref in matches:
+      if "NA" not in match_ref["platformId"]:
+        continue
       if not self._match_db.contains(match_ref):
         self._match_db.insert_ref(match_ref)
         # TODO doing duplicate work?

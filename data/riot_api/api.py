@@ -67,7 +67,12 @@ class RiotApi(object):
     url = RiotApi._get_api_url("league/by-summoner/%s" % summoner_ids, 2.5)
     return RiotApi._get(url)
 
-
+  @staticmethod
+  def get_all_items():
+    url = "https://na.api.pvp.net/api/lol/static-data/na/v1.2/item?api_key={api_key}&itemListData=into,from".format(
+      api_key=RiotApi._API_KEY
+    )
+    return _get(url)
 
 
 
