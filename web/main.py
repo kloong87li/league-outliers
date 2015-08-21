@@ -39,6 +39,9 @@ def toJson(data):
 def transform_build(data):
   skills = data["value"]["skillUps"]
   data["value"]["skillUps"] = [(s["skillSlot"] - 1) for s in skills]
+  data["value"]["championId"] = data["_id"]["championId"]
+  data["value"]["lane"] = data["_id"]["lane"]
+  data["value"]["role"] = data["_id"]["role"]
   return data
 
 class CommonBuilds(Resource):
