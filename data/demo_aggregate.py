@@ -8,7 +8,7 @@ from bson.code import Code
 MAP_FN = """
 function() {
   value = this.value
-  if (value.finalBuild.length < 4) {
+  if (value.finalBuild.length < 6) {
     return
   }
   var finalBuild = value.finalBuild
