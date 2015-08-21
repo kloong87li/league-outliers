@@ -12,33 +12,14 @@ class MatchWorker(Worker):
     self._api_scheduler = kwargs.pop("api_scheduler")
     self._player_db = kwargs.pop("player_db")
     self._match_db = kwargs.pop("match_db")
+    self._build_db = kwargs.pop("build_db")
     self._player_queue = kwargs.pop("player_queue") # Player
     self._match_queue = kwargs.pop("match_queue")  # MatchReference
+    self._match_processor = kwargs.pop("match_processor")
 
   def _generate_request(self, match_ref):
     get = functools.partial(RiotApi.get_match, match_ref["matchId"])
     return ApiRequest(get)
-
-
-  # def _get_leagues_for_players(self, players):
-  #   get = functools.partial(RiotApi.get_leagues, players)
-  #   request = ApiRequest(get)
-
-  #   self._make_request(request)
-
-  #   leagues = request.get_data()
-  #   return leagues or {}
-
-  # def _get_league(self, league_map, player):
-  #   sid = str(player["summonerId"])
-  #   try:
-  #     leagues = league_map[sid]
-  #     for league in leagues:
-  #       if league["queue"] == "RANKED_SOLO_5x5":
-  #         return league["tier"]
-  #     return None
-  #   except KeyError:
-  #     return None
 
   def _player_is_good(self, league):
     return (league in ["CHALLENGER", "MASTER", "DIAMOND", "PLATINUM", "GOLD"])
@@ -95,12 +76,23 @@ class MatchWorker(Worker):
       print "!! [MATCH_WORKER] Failed to get match, reseting 'is_ref' for %r" % match_ref["matchId"]
       return
     
-    # Update db and queue
-    print "[MATCH_WORKER] Inserted match %r" % match["matchId"]
-    self._match_db.insert(match)
+    # Insert players
     players = [p["player"] for p in match["participantIdentities"]]
     leagues = [p["highestAchievedSeasonTier"] for p in match["participants"]]
     self._queue_players(players, leagues)
+
+    # Process and insert match
+    try:
+      trimmed = self._match_processor.trim_match(match)
+      player_builds = self._match_processor.get_builds_from_match(match)
+      inserted = self._build_db.insert_many(player_builds)
+      trimmed["participantStats"] = inserted
+
+      print "[MATCH_WORKER] Inserted match %r" % match["matchId"]
+      self._match_db.insert(trimmed)
+    except Exception as e:
+      print "!! Exception occurred for match: %d (%r)" % (match["matchId"], e)
+      return
 
 
 

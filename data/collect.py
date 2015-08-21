@@ -1,9 +1,9 @@
 #!/usr/bin/python
 
-from riot_api import RiotApiScheduler, ApiRequest, RiotApi, API_KEY
+from riot_api import RiotApiScheduler, ApiRequest, RiotApi, RiotItems, API_KEY
 from workers import PlayerWorker, MatchWorker
-from db import PlayerDb, MatchDb
-from util import datetime_to_timestamp
+from db import PlayerDb, MatchDb, BuildDb
+from util import datetime_to_timestamp, MatchProcessor
 
 import signal
 import sys
@@ -49,9 +49,14 @@ def main(argv):
   # Initialize components
   api_scheduler = RiotApiScheduler()
   player_db = PlayerDb(outliers_db.players)
-  match_db = MatchDb(outliers_db.raw_matches)
+  match_db = MatchDb(outliers_db.matches)
+  build_db = BuildDb(outliers_db.player_builds)
   player_queue = Queue(maxsize=MAX_PLAYER_QSIZE)
   match_queue = Queue(maxsize=MAX_MATCH_QSIZE)
+
+  riot_items = RiotItems()
+  match_processor = MatchProcessor(riot_items)
+
   workers = []
 
   # Initial seed
@@ -94,8 +99,10 @@ def main(argv):
       api_scheduler=api_scheduler,
       player_db=player_db,
       match_db=match_db,
+      build_db=build_db,
       player_queue=player_queue,
       match_queue=match_queue,
+      match_processor=match_processor
     )
     workers.append(worker)
     worker.start()
