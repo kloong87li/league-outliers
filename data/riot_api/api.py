@@ -72,7 +72,7 @@ class RiotApi(object):
     url = "https://na.api.pvp.net/api/lol/static-data/na/v1.2/item?api_key={api_key}&itemListData=into,from".format(
       api_key=RiotApi._API_KEY
     )
-    return _get(url)
+    return RiotApi._get(url)
 
 
 
