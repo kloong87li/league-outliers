@@ -7,7 +7,7 @@ from bson.code import Code
 
 MAP_FN = """
 function() {
-  value = this.value
+  var value = this.value
   if (value.finalBuild.length < 6) {
     return
   }
@@ -55,7 +55,7 @@ def main(argv):
 
   input_coll = outliers_db["build_stats"]
 
-  input_coll.map_reduce(MAP_FN, REDUCE_FN, "demo_build_stats", finalize=FINALIZE_FN, reduce_output=True)
+  input_coll.map_reduce(MAP_FN, REDUCE_FN, "demo_build_stats", finalize=FINALIZE_FN, reduce_output=False)
 
 
 if __name__ == "__main__":
