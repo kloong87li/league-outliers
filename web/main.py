@@ -69,4 +69,4 @@ api.add_resource(CommonBuilds, '/api/champion/common/<string:id>')
 api.add_resource(OutlierBuilds, '/api/champion/outlier/<string:id>')
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0')
+    app.run(host='0.0.0.0', threaded=True)
