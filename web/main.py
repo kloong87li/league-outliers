@@ -48,7 +48,7 @@ class CommonBuilds(Resource):
   def get(self, id):
     results = mongo.outliers.demo_build_stats.find_one({
       "$query": {"_id.championId": int(id)},
-      "$orderby": {"value.stats.count": 1}
+      "$orderby": {"value.stats.count": -1}
     })
     results = transform_build(results)
     if len(results):
@@ -60,8 +60,8 @@ class OutlierBuilds(Resource):
   def get(self, id):
     results = mongo.outliers.demo_build_stats.find({
       "$query": {"_id.championId": int(id)},
-      "$orderby": {"value.stats.count": 1}
-    }).skip(1)
+      "$orderby": {"value.stats.count": -1}
+    }).skip(1).limit(20)
     json_results = []
     for result in results:
       json_results.append(transform_build(result))
