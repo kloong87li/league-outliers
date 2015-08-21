@@ -38,19 +38,26 @@ def toJson(data):
 
 class CommonBuilds(Resource):
   def get(self, id):
-    results = mongo.outliers.demo_build_stats.find({
+    results = mongo.outliers.demo_build_stats.find_one({
       "$query": {"_id.championId": int(id)},
       "$orderby": {"value.stats.count": 1}
     })
+    if len(results):
+      return {"data": json.loads(toJson(results))}, 200
+    else:
+      return "NOT FOUND", 404
+
+class OutlierBuilds(Resource):
+  def get(self, id):
+    results = mongo.outliers.demo_build_stats.find({
+      "$query": {"_id.championId": int(id)},
+      "$orderby": {"value.stats.count": 1}
+    }).skip(1)
     json_results = []
     for result in results:
       print result
       json_results.append(result)
     return {"data": json.loads(toJson(json_results))}, 200
-
-class OutlierBuilds(Resource):
-  def get(self, id):
-    return id, 200
 
 
 api.add_resource(CommonBuilds, '/api/champion/common/<string:id>')
