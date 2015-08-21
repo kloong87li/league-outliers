@@ -14,7 +14,7 @@ import json
 SECRET_KEY = 'development key'
 USERNAME = 'admin'
 PASSWORD = 'default'
-DEBUG = True
+DEBUG = False
 
 
 app = Flask(__name__)
@@ -36,12 +36,18 @@ def toJson(data):
   """Convert Mongo object(s) to JSON"""
   return json.dumps(data, default=json_util.default)
 
+def transform_build(data):
+  skills = data["value"]["skillUps"]
+  data["value"]["skillUps"] = [(s["skillSlot"] - 1) for s in skills]
+  return data
+
 class CommonBuilds(Resource):
   def get(self, id):
     results = mongo.outliers.demo_build_stats.find_one({
       "$query": {"_id.championId": int(id)},
       "$orderby": {"value.stats.count": 1}
     })
+    results = transform_build(results)
     if len(results):
       return {"data": json.loads(toJson(results))}, 200
     else:
@@ -55,8 +61,7 @@ class OutlierBuilds(Resource):
     }).skip(1)
     json_results = []
     for result in results:
-      print result
-      json_results.append(result)
+      json_results.append(transform_build(result))
     return {"data": json.loads(toJson(json_results))}, 200
 
 
