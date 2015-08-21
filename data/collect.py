@@ -49,7 +49,7 @@ def main(argv):
   # Initialize components
   api_scheduler = RiotApiScheduler()
   player_db = PlayerDb(outliers_db.players)
-  match_db = MatchDb(outliers_db.matches)
+  match_db = MatchDb(outliers_db.raw_matches)
   player_queue = Queue(maxsize=MAX_PLAYER_QSIZE)
   match_queue = Queue(maxsize=MAX_MATCH_QSIZE)
   workers = []

@@ -21,10 +21,10 @@ class MatchProcessor(object):
     return cmatch
 
   def _is_item_final(self, iid):
-    return self._itemDb.is_final_item(str(iid))
+    return self._itemDb.is_final_item(iid)
 
   def _is_item_upgrade(self, iid):
-    return self._itemDb.is_upgraded_item(str(iid))
+    return self._itemDb.is_upgraded_item(iid)
 
   def _update_items_removed(self, iid, pid, items_removed):
     if self._is_item_final(iid):
@@ -41,7 +41,7 @@ class MatchProcessor(object):
       return None
 
     if self._is_item_upgrade(iid):
-      item = self._itemDb.get_item(str(iid))
+      item = self._itemDb.get_item(iid)
       if item and "from" in item:
         for base_iid in item["from"]:
           self._update_items_removed(base_iid, pid, items_upgraded)
@@ -80,6 +80,8 @@ class MatchProcessor(object):
         if pid < 1 or pid > 10: continue
 
         # append history if related to items
+        if "itemId" in event:
+          event["itemId"] = str(event["itemId"])
         if "ITEM" in eventType: builds[pid]["rawItemEvents"].append(event)
 
         if eventType == "SKILL_LEVEL_UP":
@@ -92,14 +94,14 @@ class MatchProcessor(object):
           if items_undone[pid] > 0:
             items_undone[pid] -= 1
             continue
-          iid = str(event["itemId"])
+          iid = event["itemId"]
           self._update_items_removed(iid, pid, items_removed)
         elif eventType == "ITEM_PURCHASED":
           if items_undone[pid] > 0:
             items_undone[pid] -= 1
             continue
 
-          iid = str(event["itemId"])
+          iid = event["itemId"]
           removed = items_removed[pid]
           if iid in removed and removed[iid] > 0:
             removed[iid] -= 1
@@ -124,6 +126,7 @@ class MatchProcessor(object):
       builds[pid]["itemEvents"].reverse()
       builds[pid]["skillUps"].reverse()
       builds[pid]["finalBuild"].reverse()
+      builds[pid]["matchId"] = match["matchId"]
       ret.append(builds[pid])
 
     return ret
