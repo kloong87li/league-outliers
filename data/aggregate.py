@@ -43,7 +43,7 @@ REDUCE_FN = """
 function(key, values) {
   result = values[0];
   for (var i=1; i < values.length; i++) {
-    result.buildIds.join(values[i].buildIds)
+    result.buildIds.concat(values[i].buildIds)
     for (var key in result.stats) {
       result.stats[key] = result.stats[key] + values[i].stats[key];
     }
@@ -55,7 +55,7 @@ function(key, values) {
 FINALIZE_FN = """
 function(key, reducedValue) {
   reducedValue.winRate = reducedValue.stats.wins / reducedValue.stats.count;
-  return result;
+  return reducedValue;
 }
 """
 
