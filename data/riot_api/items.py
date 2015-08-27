@@ -2,6 +2,7 @@ from .api import RiotApi
 
 class RiotItems(object):
 
+  # For certain items to be considered final, despite being upgradeable
   _FINAL_ITEM_WHITELIST = [
     2049, # sighstone
     3117, 3009, 3006, 3158, 3047, 3020, 3111, # boots
@@ -13,6 +14,7 @@ class RiotItems(object):
     3726
   ]
 
+  # items not considered as final, trinkets and stuff
   _FINAL_ITEM_BLACKLIST = [
     3364,
     3363,
@@ -35,6 +37,7 @@ class RiotItems(object):
 
   _GROUP_BLACKLIST = [
     "GangplankRUpgrade",
+    "Boots"
   ]
 
   def __init__(self):
@@ -64,6 +67,7 @@ class RiotItems(object):
     if item is None:
       return False
 
+    # Avoid gangplank items
     if "group" in item:
       for group in RiotItems._GROUP_BLACKLIST:
         if group in item["group"]:
@@ -83,4 +87,28 @@ class RiotItems(object):
 
     return False
 
+  def is_item_upgradeable(self, iid):
+    # Mainly used to avoid considering boot upgrades
+    item = self.get_item(iid)
+    if item is None:
+      return False
+
+    if not self.is_final_item(iid):
+      return False
+
+    if "into" in item:
+      for intoItem in item["into"]:
+        if self._is_in_group_blacklist(intoItem):
+          return False
+      return True
+    else:
+      return False
+
+  def _is_in_group_blacklist(self, iid):
+    item = self.get_item(iid)
+    if "group" in item:
+      for group in RiotItems._GROUP_BLACKLIST:
+        if group in item["group"]:
+          return True
+    return False
 

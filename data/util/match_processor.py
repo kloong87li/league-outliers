@@ -140,7 +140,7 @@ class MatchProcessor(object):
           # If a final item was destroyed, ignore the next one cause it was
           # (probably) upgraded or swapped
           iid = event["itemId"]
-          if self._is_item_final(iid):
+          if self._itemDb.is_item_upgradeable(iid):
             self._update_items_removed(iid, pid, items_upgraded)
         else:
           continue
