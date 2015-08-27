@@ -36,19 +36,14 @@ class MatchProcessor(object):
       else:
         removed[iid] = 1
 
-  def _register_item_upgrade(self, iid, pid, items_upgraded):
+  def _register_item_upgrade_sold(self, iid, pid, items_sold):
     item = self._itemDb.get_item(iid)
     if item and "from" in item:
       for base_iid in item["from"]:
-        self._update_items_removed(base_iid, pid, items_upgraded)
+        self._update_items_removed(base_iid, pid, items_sold)
 
-  def _process_item_purchase(self, iid, pid, items_removed, items_upgraded):
-    upgraded = items_upgraded[pid]
-    if iid in upgraded and upgraded[iid] > 0:
-      upgraded[iid] -= 1
-      return None
-
-    if self._is_item_final(iid):
+  def _process_item_purchase(self, iid, pid, items_removed):
+    if self._is_item_final(iid) and not self._is_item_upgrade(iid):
       return iid
     else:
       return None
@@ -81,7 +76,6 @@ class MatchProcessor(object):
         }
       }
       items_removed[p["participantId"]] = {}
-      items_upgraded[p["participantId"]] = {}
       items_undone[p["participantId"]] = 0
 
     for frame in reversed(match["timeline"]["frames"]):
@@ -109,7 +103,7 @@ class MatchProcessor(object):
 
           iid = event["itemId"]
           if self._is_item_upgrade(iid):  # in case they sold an upgrade
-            self._register_item_upgrade(iid, pid, items_upgraded)
+            self._register_item_upgrade_sold(iid, pid, items_removed)
           self._update_items_removed(iid, pid, items_removed)
         elif eventType == "ITEM_PURCHASED":
           if items_undone[pid] > 0:
@@ -122,7 +116,7 @@ class MatchProcessor(object):
             removed[iid] -= 1
             continue
 
-          item = self._process_item_purchase(iid, pid, items_removed, items_upgraded)
+          item = self._process_item_purchase(iid, pid, items_removed)
           if item is not None:
             event["is_final_item"] = True
             build["finalBuild"].append(item)
@@ -136,12 +130,6 @@ class MatchProcessor(object):
           build["itemEvents"]["processed"].append(trimmed_event)
         elif eventType == "ITEM_UNDO":
           items_undone[pid] += 1
-        elif eventType == "ITEM_DESTROYED":
-          # If a final item was destroyed, ignore the next one cause it was
-          # (probably) upgraded or swapped
-          iid = event["itemId"]
-          if self._itemDb.is_item_upgradeable(iid):
-            self._update_items_removed(iid, pid, items_upgraded)
         else:
           continue
 

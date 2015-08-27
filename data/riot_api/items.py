@@ -4,10 +4,10 @@ class RiotItems(object):
 
   # For certain items to be considered final, despite being upgradeable
   _FINAL_ITEM_WHITELIST = [
-    2049, # sighstone
+    2049, # sightstone
     3117, 3009, 3006, 3158, 3047, 3020, 3111, # boots
     3003, # archangels
-    3004, # muamane
+    3004, # muramane
     3710, # devourers
     3718,
     3722,
