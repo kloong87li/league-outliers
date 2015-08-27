@@ -93,11 +93,8 @@ class RiotItems(object):
     if item is None:
       return False
 
-    if not self.is_final_item(iid):
-      return False
-
-    if "into" in item:
-      for intoItem in item["into"]:
+    if "upgradeInto" in item:
+      for intoItem in item["upgradeInto"]:
         if self._is_in_group_blacklist(intoItem):
           return False
       return True
