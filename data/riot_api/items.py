@@ -13,7 +13,7 @@ class RiotItems(object):
     3726
   ]
 
-  _FINAL_ITEM_BLACKLIST = [ # trinkets
+  _FINAL_ITEM_BLACKLIST = [
     3364,
     3363,
     3362,
@@ -27,7 +27,14 @@ class RiotItems(object):
     2138,
     2137,
     2009,
-    2010
+    2010,
+    1055,
+    1054,
+    1056
+  ]
+
+  _GROUP_BLACKLIST = [
+    "GangplankRUpgrade",
   ]
 
   def __init__(self):
@@ -56,6 +63,11 @@ class RiotItems(object):
     item = self.get_item(iid)
     if item is None:
       return False
+
+    if "group" in item:
+      for group in RiotItems._GROUP_BLACKLIST:
+        if group in item["group"]:
+          return False
 
     return ("into" not in item)
 

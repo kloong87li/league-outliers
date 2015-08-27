@@ -50,7 +50,7 @@ def main(argv):
   api_scheduler = RiotApiScheduler()
   player_db = PlayerDb(outliers_db.players)
   match_db = MatchDb(outliers_db.matches)
-  build_db = BuildDb(outliers_db.player_builds)
+  build_db = BuildDb(outliers_db)
   player_queue = Queue(maxsize=MAX_PLAYER_QSIZE)
   match_queue = Queue(maxsize=MAX_MATCH_QSIZE)
 

@@ -48,6 +48,16 @@ class MatchWorker(Worker):
     except Empty:
       return self._match_db.find_needs_update()
 
+  def _process_and_insert_build(self, participant):
+    build = participant["build"]
+
+    build["itemEvents"] = self._build_db.insert_item_events(build["itemEvents"])
+    build["runes"] = self._build_db.insert_runes(build["runes"])
+    build["masteries"] = self._build_db.insert_masteries(build["masteries"])
+    build["skillups"] = self._build_db.insert_skillups(build["skillups"])
+
+    return self._build_db.insert_build(participant)
+
   def _make_request(self, request):
     # Try to queue api request
     while self._is_running:
@@ -84,14 +94,20 @@ class MatchWorker(Worker):
     # Process and insert match
     try:
       trimmed = self._match_processor.trim_match(match)
-      player_builds = self._match_processor.get_builds_from_match(match)
-      inserted = self._build_db.insert_many(player_builds)
-      trimmed["participantStats"] = inserted
+      participants = self._match_processor.get_builds_from_match(match)
+      
+      # Consolidate build, runes, masteries, etc into separate db's
+      for p in participants:
+        build_id = self._process_and_insert_build(p)
+        p["build"] = build_id
 
-      print "[MATCH_WORKER] Inserted match %r" % match["matchId"]
+      trimmed["participants"] = participants
       self._match_db.insert(trimmed)
+      print "[MATCH_WORKER] Inserted match %r" % match["matchId"]
     except Exception as e:
       print "!! Exception occurred for match: %d (%r)" % (match["matchId"], e)
+      import traceback
+      traceback.print_exc()
       return
 
 

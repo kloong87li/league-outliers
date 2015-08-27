@@ -1,5 +1,5 @@
 from util import MatchProcessor
-from riot_api import RiotItems
+from riot_api import RiotItems, RiotApi
 
 import sys, argparse, threading
 from pymongo import MongoClient
@@ -9,7 +9,7 @@ def translate_build(riot_items, items):
 
 def main(argv):
   mongo_url = "mongodb://localhost:27017"
-  collection = "raw_matches"
+  collection = "matches"
   output = "matches"
 
   parser = argparse.ArgumentParser(description='Map matches in database to builds')
@@ -34,73 +34,70 @@ def main(argv):
 
   # Test script
   if args.t:
-    match = None
+    match_id = args.t
     if args.t == 'any':
-      query = {"is_ref": False}
-    else:
-      query = {"matchId": args.t}
+      match_id = input_db.find_one()["matchId"]
 
-    match = input_db.find_one(query)
-
+    match = RiotApi.get_match(match_id)
     print "Processing Match: %d" % match["matchId"]
     trimmed = match_processor.trim_match(match)
-    builds = match_processor.get_builds_from_match(match)
+    participants = match_processor.get_builds_from_match(match)
 
     print "[Trimmed]:"
     print trimmed
     print "[Builds]:"
-    for build in builds:
-      translate_build(riot_items, build["finalBuild"])
+    for p in participants:
+      translate_build(riot_items, p["build"]["finalBuild"])
     return
 
 
   # Process all matches in DB using parallel scan
 
   # Function to process each cursor
-  m_output = outliers_db[args.om]
-  b_output = outliers_db[args.ob]
-  def process_cursor(cursor):
-    try:
-      for match in cursor:
-        try:
-          if "is_ref" in match and match["is_ref"]:  # Match not yet fetched
-            continue
+  # m_output = outliers_db[args.om]
+  # b_output = outliers_db[args.ob]
+  # def process_cursor(cursor):
+  #   try:
+  #     for match in cursor:
+  #       try:
+  #         if "is_ref" in match and match["is_ref"]:  # Match not yet fetched
+  #           continue
 
-          trimmed = match_processor.trim_match(match)
-          player_builds = match_processor.get_builds_from_match(match)
-          result = b_output.insert_many(player_builds)
-          trimmed["participantStats"] = result.inserted_ids
+  #         trimmed = match_processor.trim_match(match)
+  #         player_builds = match_processor.get_builds_from_match(match)
+  #         result = b_output.insert_many(player_builds)
+  #         trimmed["participantStats"] = result.inserted_ids
 
-          if args.v:
-            print "Inserted builds for match: %r" % match["matchId"]
-          m_output.replace_one(
-            {"matchId": match["matchId"]},
-            trimmed,
-            upsert=True
-          )
-        except Exception as e:
-          print "!! Exception occurred for match: %d, marking as error. (%r)" % (match["matchId"], e)
-          m_output.replace_one(
-            {"matchId": match["matchId"]},
-            {
-              "matchId": match["matchId"],
-              "error": repr(e)
-            },
-            upsert=True
-          )
-          continue
-    except Exception as e:
-      print "!! Exception occurred in thread, terminating: %r" % e
+  #         if args.v:
+  #           print "Inserted builds for match: %r" % match["matchId"]
+  #         m_output.replace_one(
+  #           {"matchId": match["matchId"]},
+  #           trimmed,
+  #           upsert=True
+  #         )
+  #       except Exception as e:
+  #         print "!! Exception occurred for match: %d, marking as error. (%r)" % (match["matchId"], e)
+  #         m_output.replace_one(
+  #           {"matchId": match["matchId"]},
+  #           {
+  #             "matchId": match["matchId"],
+  #             "error": repr(e)
+  #           },
+  #           upsert=True
+  #         )
+  #         continue
+  #   except Exception as e:
+  #     print "!! Exception occurred in thread, terminating: %r" % e
 
-  cursors = input_db.parallel_scan(int(args.n))
-  threads = [
-    threading.Thread(target=process_cursor, args=(cursor,))
-    for cursor in cursors
-  ]
-  for thread in threads:
-    thread.start()
-  for thread in threads:
-    thread.join()
+  # cursors = input_db.parallel_scan(int(args.n))
+  # threads = [
+  #   threading.Thread(target=process_cursor, args=(cursor,))
+  #   for cursor in cursors
+  # ]
+  # for thread in threads:
+  #   thread.start()
+  # for thread in threads:
+  #   thread.join()
 
 
 if __name__ == "__main__":
