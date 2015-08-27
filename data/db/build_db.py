@@ -48,6 +48,7 @@ class BuildDb(object):
     build = participant["build"]
     stats = participant["stats"]
     _key = ",".join(build["finalBuild"])
+    _key_sorted = ",".join(sorted(build["finalBuild"]))
 
     skillups_key = "skillups." + build["skillups"]
     spell1_key = "summonerSpells." + str(build["summonerSpells"][0])
@@ -63,7 +64,7 @@ class BuildDb(object):
         "_key": _key
       },
       {
-        "$setOnInsert": {"finalBuild": build["finalBuild"]},
+        "$setOnInsert": {"finalBuild": build["finalBuild"], "_key_sorted": _key_sorted},
         "$push": {"itemEvents": build["itemEvents"]},
         "$inc": {
           skillups_key: 1,
