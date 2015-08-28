@@ -52,39 +52,51 @@ def get_partial_value(build_size):
     "itemEvents": "$_partial_itemEvents"
   }
 
-def reshape_partial(build_size):
+def reshape_partial(build_size, is_first_stage=False):
   # Reshapes document to be the original format, to be used after each consolidation
   partial_key = "size_" + str(build_size)
-  return {
-    "$project": {
-      "_id": 0,
-      "_original_id": {"$ifNull": ["$value._original_id", "$value._id"]},
-      "_partials": {
-        partial_key: get_partial_value(build_size),
-      },
-      "championId": "$value.championId",
-      "lane": "$value.lane",
-      "role": "$value.role",
-      "skillups": "$value.skillups",
-      "summonerSpells": "$value.summonerSpells",
-      "runes": "$value.runes",
-      "masteries": "$value.masteries",
-      "itemEvents": "$value.itemEvents",
-      "finalBuild": "$value.finalBuild",
-      "_key": "$value._key",
-      "stats": {
-        "count": "$value.stats.count",
-        "wins": "$value.stats.wins",
-        "losses": "$value.stats.losses",
-        "kills": "$value.stats.kills",
-        "deaths": "$value.stats.deaths",
-        "assists": "$value.stats.assists",
-        "damageToChampions": "$value.stats.damageToChampions",
-        "minionsKilled": "$value.stats.minionsKilled",
-        "goldEarned": "$value.stats.goldEarned",
+  if is_first_stage:
+    return {
+      "$project": {
+        "_id": 0,
+        "_original_id": {"$ifNull": ["$value._original_id", "$value._id"]},
+        "_partials": {
+          partial_key: get_partial_value(build_size),
+        },
+        "championId": "$value.championId",
+        "lane": "$value.lane",
+        "role": "$value.role",
+        "skillups": "$value.skillups",
+        "summonerSpells": "$value.summonerSpells",
+        "runes": "$value.runes",
+        "masteries": "$value.masteries",
+        "itemEvents": "$value.itemEvents",
+        "finalBuild": "$value.finalBuild",
+        "_key": "$value._key",
+        "stats": {
+          "count": "$value.stats.count",
+          "wins": "$value.stats.wins",
+          "losses": "$value.stats.losses",
+          "kills": "$value.stats.kills",
+          "deaths": "$value.stats.deaths",
+          "assists": "$value.stats.assists",
+          "damageToChampions": "$value.stats.damageToChampions",
+          "minionsKilled": "$value.stats.minionsKilled",
+          "goldEarned": "$value.stats.goldEarned",
+        }
       }
     }
-  }
+  else:
+    return {
+      "$project": {
+        "_id": 0,
+        "_original_id": {"$ifNull": ["$value._original_id", "$value._id"]},
+        "_partials": {
+          partial_key: get_partial_value(build_size),
+        },
+        "finalBuild": "$value.finalBuild",
+      }
+    }
 
 def group_builds(build_size):
   substr_len = 5 * build_size - 1
@@ -165,7 +177,7 @@ def aggregate_partial(build, partial_build):
     return
   merge_item_trie(partial_trie["neighbors"], build["itemEvents"]["neighbors"])
 
-def process_build(output, build_doc):
+def process_build(bulk, build_doc):
   build = build_doc["value"]
   stats = build["stats"]
   partials = build["_partials"]
@@ -173,19 +185,21 @@ def process_build(output, build_doc):
     aggregate_partial(build, partials[partial_key])
 
   del build["_partials"]
-  output.replace_one(
-    {"_id": build_doc["_id"]},
+  bulk.find(
+    {"_id": build_doc["_id"]}
+  ).upsert().replace_one(
     {
       "_id": build_doc["_id"],
       "value": build
-    },
-    upsert=True
+    }
   )
 
 def consolidate_partials(temp, output, num_cursors):
   def process_cursor(cursor):
+    bulk = output.initialize_unordered_bulk_op()
     for document in cursor:
-      process_build(output, document)
+      process_build(bulk, document)
+    bulk.execute()
 
   cursors = temp.parallel_scan(num_cursors)
   threads = [
@@ -199,36 +213,25 @@ def consolidate_partials(temp, output, num_cursors):
   for thread in threads:
     thread.join()
 
-def relocate_build_with_partials(build_size, output, build):
+def relocate_build_with_partials(build_size, bulk, build):
   partial_key = "size_" + str(build_size)
   partial_path = "value._partials." + partial_key
   partial_value = build["value"]["_partials"][partial_key]
   value = build["value"]
-  output.update_one(
-    {"_id": build["_id"]},
+  bulk.find(
+    {"_id": build["_id"]}
+  ).upsert().update_one(
     {
-      "$setOnInsert": {
-        "value.championId": value["championId"],
-        "value.lane": value["lane"],
-        "value.role": value["role"],
-        "value.skillups": value["skillups"],
-        "value.summonerSpells": value["summonerSpells"],
-        "value.runes": value["runes"],
-        "value.masteries": value["masteries"],
-        "value.itemEvents": value["itemEvents"],
-        "value.finalBuild": value["finalBuild"],
-        "value._key": value["_key"],
-        "value.stats": value["stats"]
-      },
       "$set": {partial_path: partial_value}
-    },
-    upsert=True
+    }
   )
 
 def relocate_temp(build_size, temp1, temp2, num_cursors):
   def process_cursor(cursor):
+    bulk = temp2.initialize_unordered_bulk_op()
     for document in cursor:
-      relocate_build_with_partials(build_size, temp2, document)
+      relocate_build_with_partials(build_size, bulk, document)
+    bulk.execute()
 
   cursors = temp1.parallel_scan(num_cursors)
   threads = [
@@ -241,7 +244,6 @@ def relocate_temp(build_size, temp1, temp2, num_cursors):
 
   for thread in threads:
     thread.join()
-
 
 def main(argv):
   mongo_url = "mongodb://localhost:27017"
@@ -264,17 +266,18 @@ def main(argv):
   output_coll = outliers_db[args.o]
 
   # Build pipeline
-  def pipeline(build_size):
+  def pipeline(build_size, is_first_stage=False):
+    temp_suffix = "_2" if is_first_stage else "_1"
     return [
       {
         "$match": {"$or": [{"finalBuild": {"$size": 6}}, {"finalBuild": {"$size": build_size}}]}
       },
       group_builds(build_size),
       { "$unwind": "$value"},
-      reshape_partial(build_size),
+      reshape_partial(build_size, is_first_stage),
       {"$match": {"finalBuild": {"$size": 6}}},  # Filter out builds of other sizes
       {"$group": {"_id": "$_original_id", "value": {"$first": "$$CURRENT"}}},
-      { "$out" : args.temp+"_1" }
+      { "$out" :  args.temp + temp_suffix}
     ]
 
   # Reset output
@@ -286,8 +289,12 @@ def main(argv):
   # Perform aggregation
   for i in xrange(5, 0, -1):
     print "Aggregating builds with size: %d" % i
-    input_coll.aggregate(pipeline(i), allowDiskUse=True)
-    relocate_temp(i, temp1_coll, temp2_coll, args.n)
+    if i == 5:
+      input_coll.aggregate(pipeline(i, True), allowDiskUse=True)
+    else:
+      input_coll.aggregate(pipeline(i, False), allowDiskUse=True)
+      print "Relocating to temporary..."
+      relocate_temp(i, temp1_coll, temp2_coll, args.n)
 
   # Consolidate partial data
   print "Consolidating partials..."
