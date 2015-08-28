@@ -145,6 +145,7 @@ def merge_item_trie(fromt, intot):
       # Already exists in destination, combine count and recurse
       intot[neighbor]["count"] += fromt[neighbor]["count"]
       intot[neighbor]["wins"] += fromt[neighbor]["wins"]
+      intot[neighbor]["timestamp"] += fromt[neighbor]["timestamp"]
       merge_item_trie(fromt[neighbor]["neighbors"], intot[neighbor]["neighbors"])
     else:  # not in destination tree, move entire subtree over
       intot[neighbor] = fromt[neighbor]

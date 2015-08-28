@@ -54,6 +54,7 @@ class BuildDb(object):
       path_obj = {
         "path": path,
         "itemId": event["itemId"],
+        "timestamp": event["timestamp"],
         "is_final_item": "is_final_item" in event and event["is_final_item"]
       }
       item_paths.append(path_obj)
@@ -103,6 +104,7 @@ class BuildDb(object):
       update_param["$setOnInsert"][path_obj["path"] + ".itemId"] = path_obj["itemId"]
       update_param["$inc"][path_obj["path"] + ".count"] = 1
       update_param["$inc"][path_obj["path"] + ".wins"] = 1 if stats["winner"] else 0
+      update_param["$inc"][path_obj["path"] + ".timestamp"] = path_obj["timestamp"]
 
     # Make update
     result = self._db.builds.find_one_and_update(

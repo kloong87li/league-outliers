@@ -124,7 +124,8 @@ class MatchProcessor(object):
 
           # Append event if not undone or removed (sold)
           trimmed_event = {
-              "itemId": event["itemId"]
+              "itemId": event["itemId"],
+              "timestamp": event["timestamp"]
           }
           if "is_final_item" in event: trimmed_event["is_final_item"] = event["is_final_item"]
           build["itemEvents"].append(trimmed_event)
