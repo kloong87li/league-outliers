@@ -146,7 +146,11 @@ def merge_item_trie(fromt, intot):
       intot[neighbor]["count"] += fromt[neighbor]["count"]
       intot[neighbor]["wins"] += fromt[neighbor]["wins"]
       intot[neighbor]["timestamp"] += fromt[neighbor]["timestamp"]
-      merge_item_trie(fromt[neighbor]["neighbors"], intot[neighbor]["neighbors"])
+      if "neighbors" in fromt[neighbor]:
+        if "neighbors" in intot[neighbor]:
+          merge_item_trie(fromt[neighbor]["neighbors"], intot[neighbor]["neighbors"])
+        else:
+          intot[neighbor]["neighbors"] = fromt[neighbor]["neighbors"]
     else:  # not in destination tree, move entire subtree over
       intot[neighbor] = fromt[neighbor]
 
@@ -245,7 +249,8 @@ def main(argv):
   input_coll.aggregate(pipeline, allowDiskUse=True)
 
   # Consolidate partial data
-  print "Consolidating partials..."
+  print "Consolidating partials... dropping output collection."
+  output_coll.drop()
   consolidate_partials(temp_coll, output_coll, args.n)
 
   print "Done!"
