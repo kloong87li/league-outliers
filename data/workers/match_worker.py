@@ -51,7 +51,6 @@ class MatchWorker(Worker):
   def _process_and_insert_build(self, participant):
     build = participant["build"]
 
-    build["itemEvents"] = self._build_db.insert_item_events(build["itemEvents"])
     build["runes"] = self._build_db.insert_runes(build["runes"])
     build["masteries"] = self._build_db.insert_masteries(build["masteries"])
     build["skillups"] = self._build_db.insert_skillups(build["skillups"])

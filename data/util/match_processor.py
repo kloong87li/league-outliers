@@ -63,6 +63,7 @@ class MatchProcessor(object):
         "highestAchievedSeasonTier": p["highestAchievedSeasonTier"],
         "timeline": p["timeline"],
         "stats": p["stats"],
+        "rawItemEvents": [],  # from timeline
         "build": {
           "championId": p["championId"],
           "lane": p["timeline"]["lane"],
@@ -71,7 +72,7 @@ class MatchProcessor(object):
           "summonerSpells": [p["spell1Id"], p["spell2Id"]],
           "runes": p["runes"],
           "masteries": p["masteries"],
-          "itemEvents": {"raw": [], "processed": []}, # from timeline
+          "itemEvents": [], # from timeline
           "finalBuild": [], # from timeline
         }
       }
@@ -91,7 +92,7 @@ class MatchProcessor(object):
         # append history if related to items
         if "itemId" in event:
           event["itemId"] = str(event["itemId"]).zfill(4)
-        if "ITEM" in eventType: build["itemEvents"]["raw"].append(event)
+        if "ITEM" in eventType: builds[pid]["rawItemEvents"].append(event)
 
         if eventType == "SKILL_LEVEL_UP" and event["levelUpType"] == "NORMAL":
           build["skillups"].append(str(event["skillSlot"]))
@@ -123,11 +124,10 @@ class MatchProcessor(object):
 
           # Append event if not undone or removed (sold)
           trimmed_event = {
-              "itemId": event["itemId"],
-              "timestamp": event["timestamp"],
+              "itemId": event["itemId"]
           }
           if "is_final_item" in event: trimmed_event["is_final_item"] = event["is_final_item"]
-          build["itemEvents"]["processed"].append(trimmed_event)
+          build["itemEvents"].append(trimmed_event)
         elif eventType == "ITEM_UNDO":
           items_undone[pid] += 1
         else:
@@ -137,8 +137,8 @@ class MatchProcessor(object):
     ret = []
     for pid in builds:
       build = builds[pid]["build"]
-      build["itemEvents"]["raw"].reverse()
-      build["itemEvents"]["processed"].reverse()
+      builds[pid]["rawItemEvents"].reverse()
+      build["itemEvents"].reverse()
       build["skillups"].reverse()
       build["finalBuild"].reverse()
       ret.append(builds[pid])

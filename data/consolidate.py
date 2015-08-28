@@ -132,18 +132,41 @@ def merge_dicts(fromd, intod):
     else:
       intod[key] = fromd[key]
 
+def merge_item_trie(fromt, intot):
+  # Merge trie (fromt) to trie (intot)
+  # Each input looks like:
+  # {
+  #   itemId1: {count, wins, is_final_item, neighbors}
+  #   itemId2: ...
+  #   ...
+  # }
+  for neighbor in fromt:
+    if neighbor in intot:
+      # Already exists in destination, combine count and recurse
+      intot[neighbor]["count"] += fromt[neighbor]["count"]
+      intot[neighbor]["wins"] += fromt[neighbor]["wins"]
+      merge_item_trie(fromt[neighbor]["neighbors"], intot[neighbor]["neighbors"])
+    else:  # not in destination tree, move entire subtree over
+      intot[neighbor] = fromt[neighbor]
+
+
+
 def aggregate_partial(build, partial_build):
   # Sum stats
   for key in partial_build["stats"]:
     build["stats"][key] += get_val_from_array_field(partial_build["stats"][key], 0)
 
-  # Merge runes, masteries, skillups, summonerSpells, and itemEvents
+  # Merge runes, masteries, skillups, summonerSpells
   merge_dicts(get_val_from_array_field(partial_build["runes"], {}), build["runes"])
   merge_dicts(get_val_from_array_field(partial_build["masteries"], {}), build["masteries"])
   merge_dicts(get_val_from_array_field(partial_build["skillups"], {}), build["skillups"])
   merge_dicts(get_val_from_array_field(partial_build["summonerSpells"], {}), build["summonerSpells"])
   
-  build["itemEvents"] += get_val_from_array_field(partial_build["itemEvents"], [])
+  # Merge itemEvents tries
+  partial_trie = get_val_from_array_field(partial_build["itemEvents"])
+  if partial_trie is None:
+    return
+  merge_item_trie(partial_trie["neighbors"], build["itemEvents"]["neighbors"])
 
 def process_build(output, build_doc):
   build = build_doc["value"]
@@ -216,11 +239,11 @@ def main(argv):
   )
   pipeline.append({ "$out" : args.temp })  # Output to DB
 
-  # # Perform aggregation
+  # Perform aggregation
   print "Aggregating..."
   input_coll.aggregate(pipeline, allowDiskUse=True)
 
-  ## Consolidate partial data
+  # Consolidate partial data
   print "Consolidating partials..."
   consolidate_partials(temp_coll, output_coll, args.n)
 
