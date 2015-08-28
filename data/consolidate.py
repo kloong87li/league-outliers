@@ -231,13 +231,15 @@ def main(argv):
 
   # Build pipeline
   pipeline = []
-  for i in xrange(5, 0, -1):
-    # For each build size, group to compute partials,
-    # unwind, and move partial data to _partials field
-    pipeline.append(group_builds(i))
-    pipeline.append({ "$unwind": "$value"})
-    pipeline.append(reshape_partial(i))
-  
+
+  pipeline.append(
+    {
+      "$match": {"$or": [{"finalBuild": {"$size": 6}}, {"finalBuild": {"$size": 5}}]}
+    }
+  )
+  pipeline.append(group_builds(5))
+  pipeline.append({ "$unwind": "$value"})
+  pipeline.append(reshape_partial(5))
   pipeline.append({"$match": {"finalBuild": {"$size": 6}}})  # Filter out builds of other sizes
   pipeline.append(  # Regroup to reset _id
     {"$group": {"_id": "$_original_id", "value": {"$first": "$$CURRENT"}}},
