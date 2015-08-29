@@ -1,6 +1,7 @@
 import sys, argparse, threading
 from pymongo import MongoClient
 from bson import ObjectId
+from bson import SON
 
 
 def build_id_for_substr(start, length):
@@ -108,7 +109,7 @@ def group_builds(build_size):
       "_partial_stats_weight": {  # How many final builds this partial build is added to
         "$sum": {
           "$cond": {
-            "if": {cond: [{"$size": "$finalBuild"}, 6]},
+            "if": {"$eq": [{"$size": "$finalBuild"}, 6]},
             "then": 1,
             "else": 0,
           }
@@ -255,7 +256,7 @@ def relocate_temp(build_size, temp1, temp2, num_cursors):
   for thread in threads:
     thread.join()
 
-MAP_FN = """
+PARTIAL_MAP_FN = """
 function() {
   var key = this._id;
   var value = this.value;
@@ -265,29 +266,100 @@ function() {
 
 # Each reduce should only be between two values, the new
 # partial result and the exsiting result in temp
-REDUCE_FN = """
+PARTIAL_REDUCE_FN = """
 function(key, values) {
   var partials = {};
   var result = values[0];
-  for (var val in values) {
+  for (var i=0; i < values.length; i++) {
+    var val = values[i]
     if (val._partials) {
       for (var key in val._partials) {
         partials[key] = val._partials[key];
       }
-    } else {
-      result = val;
     }
+    if (val.stats) result = val;
   }
-  result._partials = partials
+  result._partials = partials;
   return result;
 }
 """
 
 # Merge partials into final stats/data structures
-FINALIZE_FN = """
-function(key, reducedValue) {
-  
-  return reducedValue;
+CONSOLIDATE_MAP_FN = """
+function() {
+  var get_val_from_array_field = function(field, default_val) {
+    if (field.constructor !== Array) {
+      return field;
+    }
+    for (var i=0;i<field.length;i++) {
+      if (field[i]) return field[i];
+    }
+    return default_val;
+  }
+
+  var merge_dicts = function(fromd, intod) {
+    for (var key in fromd) {
+      if (intod[key]){
+        intod[key] += fromd[key];
+      } else {
+        intod[key] = fromd[key];
+      }
+    }
+  }
+
+  var merge_item_trie = function(fromt, intot) {
+    for (var neighbor in fromt) {
+      if (intot[neighbor]) {
+        intot[neighbor]["count"] += fromt[neighbor]["count"];
+        intot[neighbor]["wins"] += fromt[neighbor]["wins"];
+        intot[neighbor]["timestamp"] += fromt[neighbor]["timestamp"];
+        if (fromt[neighbor]["neighbors"]) {
+          if (intot[neighbor]["neighbors"]){
+            merge_item_trie(fromt[neighbor]["neighbors"], intot[neighbor]["neighbors"]);
+          } else {
+            intot[neighbor]["neighbors"] = fromt[neighbor]["neighbors"];
+          }
+        }
+      } else {
+        intot[neighbor] = fromt[neighbor];
+      }
+    }
+  }
+
+  var aggregate_partial = function(build, partial_build) {
+    for (var key in partial_build["stats"]) {
+      build["stats"][key] += get_val_from_array_field(partial_build["stats"][key], 0);
+    }
+
+    merge_dicts(get_val_from_array_field(partial_build["runes"], {}), build["runes"]);
+    merge_dicts(get_val_from_array_field(partial_build["masteries"], {}), build["masteries"]);
+    merge_dicts(get_val_from_array_field(partial_build["skillups"], {}), build["skillups"]);
+    merge_dicts(get_val_from_array_field(partial_build["summonerSpells"], {}), build["summonerSpells"]);
+    
+    var partial_trie = get_val_from_array_field(partial_build["itemEvents"]);
+    if (!partial_trie) {
+      return;
+    }
+    merge_item_trie(partial_trie["neighbors"], build["itemEvents"]["neighbors"]);
+  }
+
+  var key = this._id
+  var build = this.value
+  var partials = build._partials;
+  for (var partial_key in partials) {
+    aggregate_partial(build, partials[partial_key]);
+  }
+  delete build["_partials"]
+  delete build["_original_id"]
+  emit(key, build);
+}
+"""
+
+# Dummy, should never be called
+CONSOLIDATE_REDUCE_FN = """
+function(key, values) {
+  assert(false)
+  return values[0];
 }
 """
 
@@ -298,7 +370,7 @@ def main(argv):
   parser.add_argument("-i", default="builds", help="Collection to aggregate from")
   parser.add_argument("-o", default="builds_consolidated", help="Output collection")
   parser.add_argument("-n", default=4, type=int, help="Number of threads used to consolidate builds")
-  parser.add_argument("--temp", default="_temp", help="Temp data collection")
+  parser.add_argument("--temp", default="temp", help="Temp data collection")
   parser.add_argument("--mongo", default=mongo_url, help="URL of MongoDB")
   args = parser.parse_args()
 
@@ -307,13 +379,11 @@ def main(argv):
   outliers_db = mongo_client.outliers
 
   input_coll = outliers_db[args.i]
-  temp1_coll = outliers_db[args.temp+"_1"]
-  temp2_coll = outliers_db[args.temp+"_2"]
+  temp_coll = outliers_db[args.temp]
   output_coll = outliers_db[args.o]
 
   # Build pipeline
   def pipeline(build_size, is_first_stage=False):
-    temp_suffix = "_2" if is_first_stage else "_1"
     return [
       {
         "$match": {"$or": [{"finalBuild": {"$size": 6}}, {"finalBuild": {"$size": build_size}}]}
@@ -323,33 +393,28 @@ def main(argv):
       reshape_partial(build_size, is_first_stage),
       {"$match": {"finalBuild": {"$size": 6}}},  # Filter out builds of other sizes
       {"$group": {"_id": "$_original_id", "value": {"$first": "$$CURRENT"}}},
-      { "$out" :  args.temp + temp_suffix}
+      { "$out" :  args.o if is_first_stage else args.temp}
     ]
 
   # Reset output
   print "Reseting output collections..."
   output_coll.drop()
-  temp1_coll.drop()
-  temp2_coll.drop()
+  temp_coll.drop()
 
   # Perform aggregation
-  for i in xrange(5, 0, -1):
+  for i in xrange (5, 0, -1):
     print "Aggregating builds with size: %d" % i
-    if i == 5:
-      input_coll.aggregate(pipeline(i, True), allowDiskUse=True)
-    else:
-      input_coll.aggregate(pipeline(i, False), allowDiskUse=True)
-      print "Relocating to temporary..."
-      relocate_temp(i, temp1_coll, temp2_coll, args.n)
+    input_coll.aggregate(pipeline(i, i==5), allowDiskUse=True)
+    if i != 5:
+      print "Merging with output collection through map-reduce..."
+      temp_coll.map_reduce(PARTIAL_MAP_FN, PARTIAL_REDUCE_FN, out=SON([('reduce', args.o)]))
 
-  # Consolidate partial data
-  print "Consolidating partials..."
-  consolidate_partials(temp2_coll, output_coll, args.n)
+  print "Consolidating partial results via map-reduce..."
+  output_coll.map_reduce(CONSOLIDATE_MAP_FN, CONSOLIDATE_REDUCE_FN, out=SON([('replace', args.o)]))
 
   print "Done!"
   print "...dropping temp collections."
-  temp1_coll.drop()
-  temp2_coll.drop()
+  temp_coll.drop()
 
 if __name__ == "__main__":
    main(sys.argv[1:])
