@@ -34,6 +34,7 @@ def if_build_size_neq(field, size, dummy=None):
 def get_partial_value(build_size):
   return {
     "build_size": {"$literal": build_size},
+    "weight": "$_partial_stats_weight",
     "stats": {
       "count": "$_partial_stats_count",
       "wins": "$_partial_stats_wins",
@@ -104,6 +105,15 @@ def group_builds(build_size):
   return {
     "$group": {
       "_id": build_id_for_substr(0, substr_len),
+      "_partial_stats_weight": {  # How many final builds this partial build is added to
+        "$sum": {
+          "$cond": {
+            "if": {cond: [{"$size": "$finalBuild"}, 6]},
+            "then": 1,
+            "else": 0,
+          }
+        }
+      },
       "_partial_stats_count": if_build_size_eq("$stats.count", build_size),
       "_partial_stats_wins": if_build_size_eq("$stats.wins", build_size),
       "_partial_stats_losses": if_build_size_eq("$stats.losses", build_size),
@@ -244,6 +254,42 @@ def relocate_temp(build_size, temp1, temp2, num_cursors):
 
   for thread in threads:
     thread.join()
+
+MAP_FN = """
+function() {
+  var key = this._id;
+  var value = this.value;
+  emit(key, value);
+}
+"""
+
+# Each reduce should only be between two values, the new
+# partial result and the exsiting result in temp
+REDUCE_FN = """
+function(key, values) {
+  var partials = {};
+  var result = values[0];
+  for (var val in values) {
+    if (val._partials) {
+      for (var key in val._partials) {
+        partials[key] = val._partials[key];
+      }
+    } else {
+      result = val;
+    }
+  }
+  result._partials = partials
+  return result;
+}
+"""
+
+# Merge partials into final stats/data structures
+FINALIZE_FN = """
+function(key, reducedValue) {
+  
+  return reducedValue;
+}
+"""
 
 def main(argv):
   mongo_url = "mongodb://localhost:27017"
