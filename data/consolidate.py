@@ -198,13 +198,15 @@ function() {
 """
 
 # Each reduce should only be between two values, the new
-# partial result and the exsiting result in temp
+# partial result and the existing result in temp
 PARTIAL_REDUCE_FN = """
 function(key, values) {
+  // Move partials
   var partials = {};
   var result = values[0];
   for (var i=0; i < values.length; i++) {
     var val = values[i]
+    if (!val) continue;
     if (val._partials) {
       for (var key in val._partials) {
         partials[key] = val._partials[key];
@@ -213,13 +215,8 @@ function(key, values) {
     if (val.stats) result = val;
   }
   result._partials = partials;
-  return result;
-}
-"""
 
-# Merge partials into final stats/data structures
-CONSOLIDATE_MAP_FN = """
-function() {
+  // Combine partial stats and stuff
   var get_val_from_array_field = function(field, default_val) {
     if (field.constructor !== Array) {
       return field;
@@ -276,25 +273,27 @@ function() {
     merge_item_trie(partial_trie["neighbors"], build["itemEvents"]["neighbors"]);
   }
 
-  var key = this._id
-  var build = this.value
-  var partials = build._partials;
+  var partials = result._partials;
   for (var partial_key in partials) {
-    aggregate_partial(build, partials[partial_key]);
+    aggregate_partial(result, partials[partial_key]);
   }
-  delete build["_partials"]
-  delete build["_original_id"]
-  emit(key, build);
+  delete result["_partials"];
+  delete result["_original_id"];
+
+  return result;
 }
 """
 
-# Dummy, should never be called
-CONSOLIDATE_REDUCE_FN = """
-function(key, values) {
-  assert(false)
-  return values[0];
-}
+FINALIZE_MAP_FN = """
+
+
 """
+
+FINALIZE_REDUCE_FN = """
+
+
+"""
+
 
 def main(argv):
   mongo_url = "mongodb://localhost:27017"
@@ -319,7 +318,11 @@ def main(argv):
   def pipeline(build_size, is_first_stage=False):
     return [
       {
-        "$match": {"$or": [{"finalBuild": {"$size": 6}}, {"finalBuild": {"$size": build_size}}]}
+        "$match": {"$or": [
+          {"finalBuild": {"$size": 6}},
+          {"finalBuild": {"$size": build_size}},
+          {"finalBuild": {"$size": build_size-1}},
+        ]}
       },
       group_builds(build_size),
       { "$unwind": "$value"},
@@ -335,15 +338,15 @@ def main(argv):
   temp_coll.drop()
 
   # Perform aggregation
-  for i in xrange (5, 1, -1):
-    print "Aggregating builds with size: %d" % i
+  for i in xrange (5, 1, -2):
+    print "Aggregating builds with size: %d, %d" % (i, i-1)
     input_coll.aggregate(pipeline(i, i==5), allowDiskUse=True)
     if i != 5:
       print "Merging with output collection through map-reduce..."
       temp_coll.map_reduce(PARTIAL_MAP_FN, PARTIAL_REDUCE_FN, out=SON([('reduce', args.o)]))
 
-  print "Consolidating partial results via map-reduce..."
-  output_coll.map_reduce(CONSOLIDATE_MAP_FN, CONSOLIDATE_REDUCE_FN, out=SON([('replace', args.o)]))
+  print "Finalizing results via map-reduce..."
+  # output_coll.map_reduce(FINALIZE_MAP_FN, FINALIZE_REDUCE_FN, out=SON([('replace', args.o)]))
 
   print "Done!"
   print "...dropping temp collections."
