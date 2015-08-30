@@ -335,7 +335,7 @@ def main(argv):
   temp_coll.drop()
 
   # Perform aggregation
-  for i in xrange (5, 0, -1):
+  for i in xrange (5, 1, -1):
     print "Aggregating builds with size: %d" % i
     input_coll.aggregate(pipeline(i, i==5), allowDiskUse=True)
     if i != 5:
