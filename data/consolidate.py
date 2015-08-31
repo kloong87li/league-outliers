@@ -285,12 +285,89 @@ function(key, values) {
 """
 
 FINALIZE_MAP_FN = """
+function() {
+  var build = this.value;
 
+  var find_highest = function(obj) {
+    var highest_val = -1;
+    var highest_key = null;
+    for (var key in obj) {
+      if (obj[key] > highest_val) {
+        highest_val = obj[key];
+        highest_key = key;
+      }
+    }
+    return highest_key;
+  }
+
+  build["runes"] = find_highest(build["runes"]);
+  build["skillups"] = find_highest(build["skillups"]);
+  build["masteries"] = find_highest(build["masteries"]);
+  build["runes"] = find_highest(build["runes"]);
+
+  var highest = find_highest(build["summonerSpells"]);
+  delete build["summonerSpells"][highest];
+  build["summonerSpells"] = [highest, find_highest(build["summonerSpells"])];
+
+  var sortByCountThenWinrate = function (events) {
+    return events.sort(function(a, b) {
+        var c1 = parseInt(a.count); var c2 = parseInt(b.count);
+        var w1 = parseInt(a.wins); var w2 = parseInt(b.count);
+        if (c1 > c2) {
+          return -1;
+        } else if (c1 === c2) {
+          return ((w1/c1) > (w2/c2)) ? -1 : 1;
+        } else {
+          return 1;
+        }
+    });
+  }
+
+  var find_path = function (neighbors, final_items_left) {
+    var neighbors_array = [];
+    for (var key in neighbors){
+      neighbors_array.push(neighbors[key]);
+    }
+    var sorted_neighbors = sortByCountThenWinrate(neighbors_array);
+    for (var i=0; i < sorted_neighbors.length; i++) {
+      var neighbor = sorted_neighbors[i];
+      if (neighbor.is_final_item) final_items_left--;
+      if (neighbor.neighbors) {
+        var path = find_path(neighbor.neighbors, final_items_left);
+        if (path) {
+          path.unshift({
+            is_final_item: neighbor.is_final_item,
+            itemId: neighbor.itemId,
+            timestamp: neighbor.timestamp / neighbor.count,
+            count: neighbor.count
+          })
+          return path;
+        }
+      } else {
+        return (final_items_left > 0) ? null : [{
+          is_final_item: neighbor.is_final_item,
+          itemId: neighbor.itemId,
+          timestamp: neighbor.timestamp / neighbor.count,
+          count: neighbor.count
+        }];
+      }
+    }
+  }
+
+  var item_path = find_path(build["itemEvents"]["neighbors"], 6);
+  assert(item_path !== null);
+  build["itemEvents"] = item_path;
+  
+  emit(this._id, build);
+}
 
 """
 
 FINALIZE_REDUCE_FN = """
-
+function(id, builds) {
+  assert(builds.length === 1);
+  return builds[0];
+}
 
 """
 
@@ -320,14 +397,14 @@ def main(argv):
       {
         "$match": {"$or": [
           {"finalBuild": {"$size": 6}},
-          {"finalBuild": {"$size": build_size}},
-          {"finalBuild": {"$size": build_size-1}},
+          {"finalBuild": {"$size": build_size}}
         ]}
       },
       group_builds(build_size),
       { "$unwind": "$value"},
       reshape_partial(build_size, is_first_stage),
-      {"$match": {"finalBuild": {"$size": 6}}},  # Filter out builds of other sizes
+      # Filter out builds of other sizes and regroup by id
+      {"$match": {"finalBuild": {"$size": 6}}},
       {"$group": {"_id": "$_original_id", "value": {"$first": "$$CURRENT"}}},
       { "$out" :  args.o if is_first_stage else args.temp}
     ]
@@ -338,15 +415,15 @@ def main(argv):
   temp_coll.drop()
 
   # Perform aggregation
-  for i in xrange (5, 1, -2):
-    print "Aggregating builds with size: %d, %d" % (i, i-1)
+  for i in xrange (5, 1, -1):
+    print "Aggregating builds with size: %d" % i
     input_coll.aggregate(pipeline(i, i==5), allowDiskUse=True)
     if i != 5:
       print "Merging with output collection through map-reduce..."
       temp_coll.map_reduce(PARTIAL_MAP_FN, PARTIAL_REDUCE_FN, out=SON([('reduce', args.o)]))
 
   print "Finalizing results via map-reduce..."
-  # output_coll.map_reduce(FINALIZE_MAP_FN, FINALIZE_REDUCE_FN, out=SON([('replace', args.o)]))
+  output_coll.map_reduce(FINALIZE_MAP_FN, FINALIZE_REDUCE_FN, out=SON([('replace', args.o)]))
 
   print "Done!"
   print "...dropping temp collections."
