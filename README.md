@@ -37,7 +37,7 @@ We use MongoDB's aggregation framework for data analytics. We run a series of ag
 
 In the final step, we run more map-reduce tasks to group builds by champion and determine a set of "unique builds" that we can then serve on the site. See [http://outlier.gg/about](http://outlier.gg/about) for more detailed methodology.
 
-##### Future extensions
+### Future extensions
 
 Due to time and resource constraints, there were a few things we weren't able to accomplish, but were originally planned:
 
