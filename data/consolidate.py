@@ -379,7 +379,6 @@ def main(argv):
   parser = argparse.ArgumentParser(description='Aggregate player builds by champion, build, and role')
   parser.add_argument("-i", default="builds", help="Collection to aggregate from")
   parser.add_argument("-o", default="builds_consolidated", help="Output collection")
-  parser.add_argument("-n", default=4, type=int, help="Number of threads used to consolidate builds")
   parser.add_argument("--temp", default="temp", help="Temp data collection")
   parser.add_argument("--mongo", default=mongo_url, help="URL of MongoDB")
   args = parser.parse_args()
