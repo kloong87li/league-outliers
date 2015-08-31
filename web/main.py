@@ -8,7 +8,7 @@ from flask import (
 from flask_restful import Resource, Api
 
 from pymongo import MongoClient
-from bson import json_util
+from bson import json_util, ObjectId
 import json
 
 SECRET_KEY = 'development key'
@@ -37,7 +37,12 @@ def toJson(data):
   return json.dumps(data, default=json_util.default)
 
 def transform_build(data):
-  #data["value"]["skillups"] = [int(s)-1 for s in data["value"]["skillups"]]
+  data["skillups"] = mongo.outliers.skillups.find_one({"_id": ObjectId(data["skillups"])})["value"]
+  data["runes"] = mongo.outliers.runes.find_one({"_id": ObjectId(data["runes"])})["value"]
+  data["masteries"] = mongo.outliers.masteries.find_one({"_id": ObjectId(data["masteries"])})["value"]
+
+  print data["skillups"], data["masteries"], data["runes"]
+  data["skillups"] = [int(s)-1 for s in data["skillups"]]
   return data
 
 class CommonBuilds(Resource):
