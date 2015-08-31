@@ -41,7 +41,6 @@ def transform_build(data):
   data["runes"] = mongo.outliers.runes.find_one({"_id": ObjectId(data["runes"])})["value"]
   data["masteries"] = mongo.outliers.masteries.find_one({"_id": ObjectId(data["masteries"])})["value"]
 
-  print data["skillups"], data["masteries"], data["runes"]
   data["skillups"] = [int(s)-1 for s in data["skillups"]]
   return data
 
