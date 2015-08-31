@@ -14,7 +14,7 @@ import json
 SECRET_KEY = 'development key'
 USERNAME = 'admin'
 PASSWORD = 'default'
-DEBUG = False
+DEBUG = True
 
 
 app = Flask(__name__)
@@ -37,35 +37,30 @@ def toJson(data):
   return json.dumps(data, default=json_util.default)
 
 def transform_build(data):
-  skills = data["value"]["skillUps"]
-  data["value"]["skillUps"] = [(s["skillSlot"] - 1) for s in skills]
-  data["value"]["championId"] = data["_id"]["championId"]
-  data["value"]["lane"] = data["_id"]["lane"]
-  data["value"]["role"] = data["_id"]["role"]
+  #data["value"]["skillups"] = [int(s)-1 for s in data["value"]["skillups"]]
   return data
 
 class CommonBuilds(Resource):
   def get(self, id):
-    results = mongo.outliers.demo_build_stats.find_one({
-      "$query": {"_id.championId": int(id)},
-      "$orderby": {"value.stats.count": -1}
+    results = mongo.outliers.unique_builds.find_one({
+      "$query": {"_id": int(id)},
     })
-    results = transform_build(results)
+    results = transform_build(results["value"]["common"])
     if len(results):
-      return {"data": json.loads(toJson(results))}, 200
+      return {"data": {"value:": json.loads(toJson(results))}}, 200
     else:
       return "NOT FOUND", 404
 
 class OutlierBuilds(Resource):
   def get(self, id):
-    results = mongo.outliers.demo_build_stats.find({
-      "$query": {"_id.championId": int(id)},
-      "$orderby": {"value.stats.count": -1}
-    }).skip(1).limit(20)
+    results = mongo.outliers.unique_builds.find_one({
+      "$query": {"_id": int(id)},
+    })
     json_results = []
-    for result in results:
+    for result in results["value"]["outliers"]:
       json_results.append(transform_build(result))
-    return {"data": json.loads(toJson(json_results))}, 200
+    return {"data": {"value:": json.loads(toJson(json_results))}}, 200
+
 
 
 api.add_resource(CommonBuilds, '/api/champion/common/<string:id>')

@@ -339,8 +339,7 @@ function() {
           path.unshift({
             is_final_item: neighbor.is_final_item,
             itemId: neighbor.itemId,
-            timestamp: neighbor.timestamp / neighbor.count,
-            count: neighbor.count
+            timestamp: neighbor.timestamp / neighbor.count
           })
           return path;
         }
@@ -349,7 +348,6 @@ function() {
           is_final_item: neighbor.is_final_item,
           itemId: neighbor.itemId,
           timestamp: neighbor.timestamp / neighbor.count,
-          count: neighbor.count
         }];
       }
     }

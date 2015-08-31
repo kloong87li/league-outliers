@@ -11,7 +11,10 @@ function() {
     lane: this.value.lane,
     _key: this.value.finalBuild.sort().join(",")
   }
-  emit(key, this.value);
+  var value = this.value
+  value.playrate = value.stats.count;
+  value.deltas = [];
+  emit(key, value);
 }
 """
 
@@ -54,7 +57,7 @@ function(key, values) {
     return ((winrate - build_winrate) <= .05);
   }
   var playrate = highest.stats.count;
-  for (var i=0; i < deltas.length;i++) playrate += (deltas[i].playrate || deltas[i].stats.count);
+  for (var i=0; i < deltas.length;i++) playrate += deltas[i].playrate;
   highest.deltas = deltas.filter(is_winrate_close)
   highest.deltas = deltas.map(function(current) {
     return {
@@ -77,10 +80,56 @@ function() {
     role: this.value.role,
     lane: this.value.lane,
     _key: build_key.join(",")
-  } 
-
-  emit(key, this.value);
+  }
+  var value = this.value; 
+  value.playrate = value.stats.count;
+  value.deltas = [];
+  emit(key, value);
 }
+"""
+
+GROUP_MAP_FN = """
+function() {
+  var champBuild = {
+    common: this.value,
+    outliers: []
+  }
+  emit(this.value.championId, champBuild);
+}
+"""
+
+GROUP_REDUCE_FN = """
+function (id, builds) {
+  var sortByPlayrate = function (champ_builds) {
+    return champ_builds.sort(function(a, b) {
+        if (a.common.playrate > b.common.playrate) return -1;
+        else if (a.common.playrate === b.common.playrate) return 0;
+        else return 1;
+    });
+  }
+
+  var sortOutliers = function(builds) {
+    return builds.sort(function(a, b) {
+        var h1 = a.playrate * (a.stats.wins / a.stats.count);
+        var h2 = b.playrate * (b.stats.wins / b.stats.count);
+        if (h1 > h2) return -1;
+        else if (h1 === h2) return 0;
+        else return 1;
+    });
+  }
+
+  var sorted_builds = sortByPlayrate(builds);
+  var common = sorted_builds[0].common;
+  var outliers = sorted_builds[0].outliers;
+  for (var i=1; i < sorted_builds.length; i++) {
+    var champBuilds = sorted_builds[i];
+    outliers.concat(champBuilds.outliers);
+    outliers.push(champBuilds.common);
+  }
+
+  return {common: common, outliers: sortOutliers(outliers)}
+}
+
 """
 
 
@@ -106,10 +155,12 @@ def main(argv):
   input_coll.map_reduce(ORDER_DELTA_MAP_FN, DELTA_REDUCE_FN, out=SON([('replace', args.o)]))
   for i in xrange(0, 6):
     print "Grouping for item deltas with index %d" % i
-    input_coll.map_reduce(ITEM_DELTA_MAP_FN, DELTA_REDUCE_FN, out=SON([('replace', args.o)]),
+    output_coll.map_reduce(ITEM_DELTA_MAP_FN, DELTA_REDUCE_FN, out=SON([('replace', args.o)]),
       scope={"_index": i}
     )
 
+  print "Grouping by champion and determining outliers..."
+  output_coll.map_reduce(GROUP_MAP_FN, GROUP_REDUCE_FN, out=SON([('replace', args.o)]))
 
 
 if __name__ == "__main__":
