@@ -227,12 +227,12 @@ function(key, values) {
     return default_val;
   }
 
-  var merge_dicts = function(fromd, intod) {
+  var merge_dicts = function(fromd, intod, weight) {
     for (var key in fromd) {
       if (intod[key]){
-        intod[key] += fromd[key];
+        intod[key] += fromd[key] / weight;
       } else {
-        intod[key] = fromd[key];
+        intod[key] = fromd[key] / weight;
       }
     }
   }
@@ -257,14 +257,16 @@ function(key, values) {
   }
 
   var aggregate_partial = function(build, partial_build) {
+    var weight = partial_build["weight"];
     for (var key in partial_build["stats"]) {
-      build["stats"][key] += get_val_from_array_field(partial_build["stats"][key], 0);
+      var stat_val = get_val_from_array_field(partial_build["stats"][key], 0);
+      build["stats"][key] += stat_val / weight;
     }
 
-    merge_dicts(get_val_from_array_field(partial_build["runes"], {}), build["runes"]);
-    merge_dicts(get_val_from_array_field(partial_build["masteries"], {}), build["masteries"]);
-    merge_dicts(get_val_from_array_field(partial_build["skillups"], {}), build["skillups"]);
-    merge_dicts(get_val_from_array_field(partial_build["summonerSpells"], {}), build["summonerSpells"]);
+    merge_dicts(get_val_from_array_field(partial_build["runes"], {}), build["runes"], weight);
+    merge_dicts(get_val_from_array_field(partial_build["masteries"], {}), build["masteries"], weight);
+    merge_dicts(get_val_from_array_field(partial_build["skillups"], {}), build["skillups"], weight);
+    merge_dicts(get_val_from_array_field(partial_build["summonerSpells"], {}), build["summonerSpells"], weight);
     
     var partial_trie = get_val_from_array_field(partial_build["itemEvents"]);
     if (!partial_trie) {
@@ -303,7 +305,6 @@ function() {
   build["runes"] = find_highest(build["runes"]);
   build["skillups"] = find_highest(build["skillups"]);
   build["masteries"] = find_highest(build["masteries"]);
-  build["runes"] = find_highest(build["runes"]);
 
   var highest = find_highest(build["summonerSpells"]);
   delete build["summonerSpells"][highest];
