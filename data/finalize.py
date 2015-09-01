@@ -9,7 +9,7 @@ function() {
     champion: this.value.championId,
     role: this.value.role,
     lane: this.value.lane,
-    _key: this.value.finalBuild.sort().join(",")
+    _key: this.value.finalBuild.slice().sort().join(",")
   }
   var value = this.value
   value.playrate = value.stats.count;
