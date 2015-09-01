@@ -58,7 +58,7 @@ function(key, values) {
   }
   var playrate = highest.stats.count;
   for (var i=0; i < deltas.length;i++) playrate += deltas[i].playrate;
-  highest.deltas = deltas.filter(is_winrate_close)
+  highest.deltas = deltas.filter(is_winrate_close);
   highest.deltas = deltas.map(function(current) {
     return {
       finalBuild: current.finalBuild,
@@ -126,6 +126,13 @@ function (id, builds) {
     outliers.concat(champBuilds.outliers);
     outliers.push(champBuilds.common);
   }
+  
+  var winrate = common.stats.wins / common.stats.count;
+  var is_winrate_close = function(build) {
+    var build_winrate = build.stats.wins / build.stats.count;
+    return ((winrate - build_winrate) <= .05);
+  }
+  outliers = outliers.filter(is_winrate_close);
 
   return {common: common, outliers: sortOutliers(outliers)}
 }
