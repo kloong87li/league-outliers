@@ -111,21 +111,5 @@ class RiotItems(object):
     return False
 
   def is_potion_or_trinket(self, iid):
-    return int(iid) in [
-      2003, #potions
-      2004,
-      2009,
-      2010,
-      2137,
-      2138,
-      2139,
-      2140,
-      3340, #  trinkets
-      3341,
-      3342,
-      3361,
-      3362,
-      3363,
-      3364
-    ]
+    return int(iid) in RiotItems._FINAL_ITEM_BLACKLIST
 
