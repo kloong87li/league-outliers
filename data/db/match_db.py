@@ -3,13 +3,14 @@ class MatchDb(object):
 
   def __init__(self, match_collection):
     self._matches = match_collection
+    self._matches.create_index("matchId")
     return
 
   def insert_ref(self, match_ref):
     match_ref.update({"is_ref": True})
     self._matches.insert(match_ref)
 
-  def insert(self, match):
+  def mark(self, match):
     match.update({"is_ref": False})
     self._matches.replace_one(
       {"matchId": match["matchId"]},

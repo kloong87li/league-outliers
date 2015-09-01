@@ -92,7 +92,7 @@ class MatchWorker(Worker):
 
     # Process and insert match
     try:
-      trimmed = self._match_processor.trim_match(match)
+      # trimmed = self._match_processor.trim_match(match)
       participants = self._match_processor.get_builds_from_match(match)
       
       # Consolidate build, runes, masteries, etc into separate db's
@@ -100,8 +100,8 @@ class MatchWorker(Worker):
         build_id = self._process_and_insert_build(p)
         p["build"] = build_id
 
-      trimmed["participants"] = participants
-      self._match_db.insert(trimmed)
+      # trimmed["participants"] = participants
+      self._match_db.mark(match)
       print "[MATCH_WORKER] Inserted match %r" % match["matchId"]
     except Exception as e:
       print "!! Exception occurred for match: %d (%r)" % (match["matchId"], e)

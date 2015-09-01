@@ -58,12 +58,12 @@ class MatchProcessor(object):
       p["runes"].sort(key=lambda x: x["runeId"])
       p["masteries"].sort(key=lambda x: x["masteryId"])
       builds[p["participantId"]] = {
-        "summonerId": match["participantIdentities"][pindex]["player"]["summonerId"],
-        "teamId": p["teamId"],
-        "highestAchievedSeasonTier": p["highestAchievedSeasonTier"],
-        "timeline": p["timeline"],
+        # "summonerId": match["participantIdentities"][pindex]["player"]["summonerId"],
+        # "teamId": p["teamId"],
+        # "highestAchievedSeasonTier": p["highestAchievedSeasonTier"],
+        # "timeline": p["timeline"],
         "stats": p["stats"],
-        "rawItemEvents": [],  # from timeline
+        # "rawItemEvents": [],  # from timeline
         "build": {
           "championId": p["championId"],
           "lane": p["timeline"]["lane"],
@@ -92,7 +92,7 @@ class MatchProcessor(object):
         # append history if related to items
         if "itemId" in event:
           event["itemId"] = str(event["itemId"]).zfill(4)
-        if "ITEM" in eventType: builds[pid]["rawItemEvents"].append(event)
+        # if "ITEM" in eventType: builds[pid]["rawItemEvents"].append(event)
 
         if eventType == "SKILL_LEVEL_UP" and event["levelUpType"] == "NORMAL":
           build["skillups"].append(str(event["skillSlot"]))
@@ -128,7 +128,8 @@ class MatchProcessor(object):
               "timestamp": event["timestamp"]
           }
           if "is_final_item" in event: trimmed_event["is_final_item"] = event["is_final_item"]
-          build["itemEvents"].append(trimmed_event)
+          if not self._itemDb.is_potion(iid):
+            build["itemEvents"].append(trimmed_event)
         elif eventType == "ITEM_UNDO":
           items_undone[pid] += 1
         else:
@@ -138,7 +139,7 @@ class MatchProcessor(object):
     ret = []
     for pid in builds:
       build = builds[pid]["build"]
-      builds[pid]["rawItemEvents"].reverse()
+      # builds[pid]["rawItemEvents"].reverse()
       build["itemEvents"].reverse()
       build["skillups"].reverse()
       build["finalBuild"].reverse()

@@ -4,7 +4,7 @@ import datetime
 from util import datetime_to_timestamp
 
 class PlayerDb(object):
-  EARLIEST_UPDATE = datetime.datetime(2015, 8, 29)
+  EARLIEST_UPDATE = datetime.datetime(2015, 8, 20)
 
   def __init__(self, player_collection):
     self._players = player_collection

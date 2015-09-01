@@ -20,7 +20,7 @@ MAX_MATCH_QSIZE = 1500
 def main(argv):
   mongo_url = "mongodb://localhost:27017"
   last_update = datetime_to_timestamp(PlayerDb.EARLIEST_UPDATE) + 1
-  initial_seed = 49159160
+  initial_seed = 60783
   update_old = False
   workers = [1, 1]
 
@@ -62,8 +62,8 @@ def main(argv):
   # Initial seed
   player_queue.put({
       "profileIcon": 588,
-      "matchHistoryUri": "/v1/stats/player_history/NA/36821626",
-      "summonerName": "-INITIAL_SEED-",
+      "matchHistoryUri": "/v1/stats/player_history/NA/60783",
+      "summonerName": "-INITIAL_SEED- (TheOddOne)",
       "summonerId": args.i,
       "last_update": datetime_to_timestamp(PlayerDb.EARLIEST_UPDATE),
       "league": "GOLD"

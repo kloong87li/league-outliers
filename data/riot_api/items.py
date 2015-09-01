@@ -110,3 +110,15 @@ class RiotItems(object):
           return True
     return False
 
+  def is_potion(self, iid):
+    return int(iid) in [
+      2003,
+      2004,
+      2009,
+      2010,
+      2137,
+      2138,
+      2139,
+      2140
+    ]
+
