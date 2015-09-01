@@ -33,7 +33,14 @@ class RiotItems(object):
     1055,
     1054,
     1056,
-    3599 # kalista spear thing
+    3599, # kalista spear thing
+    3340,
+    3341,
+    3342,
+    3361,
+    3362,
+    3363,
+    3364
   ]
 
   _GROUP_BLACKLIST = [

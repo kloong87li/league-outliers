@@ -37,6 +37,9 @@ class BuildDb(object):
     return str(result["_id"])
 
   def insert_skillups(self, skillups):
+    if len(skillups) < 18:
+      return None
+
     _key = "".join(skillups)
     result = self._db.skillups.find_one_and_update(
       {"_key": _key},
@@ -66,7 +69,7 @@ class BuildDb(object):
     _key = ",".join(build["finalBuild"])
     _key_sorted = ",".join(sorted(build["finalBuild"]))
 
-    skillups_key = "skillups." + build["skillups"]
+    skillups_key = "skillups." + str(build["skillups"])
     spell1_key = "summonerSpells." + str(build["summonerSpells"][0])
     spell2_key = "summonerSpells." + str(build["summonerSpells"][1])
     runes_key = "runes." + build["runes"]
@@ -79,7 +82,6 @@ class BuildDb(object):
         "_key_sorted": _key_sorted,
       },
       "$inc": {
-        skillups_key: 1,
         spell1_key: 1,
         spell2_key: 1,
         runes_key: 1,
@@ -95,6 +97,9 @@ class BuildDb(object):
         "stats.goldEarned": stats["goldEarned"]
       }
     }
+
+    if build["skillups"] is not None:
+      update_param["$inc"][skillups_key] = 1
 
     # Generate update param for item trie
     item_paths = self._get_item_trie_paths(build["itemEvents"])

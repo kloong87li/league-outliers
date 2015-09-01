@@ -426,6 +426,8 @@ def main(argv):
   output_coll.map_reduce(FINALIZE_MAP_FN, FINALIZE_REDUCE_FN, out=SON([('replace', args.o)]),
       sort={"_id": 1})
 
+  output_coll.delete_many({"value.itemEvents": None})
+
   print "Done!"
   print "...dropping temp collections."
   temp_coll.drop()
