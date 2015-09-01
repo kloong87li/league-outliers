@@ -128,7 +128,7 @@ class MatchProcessor(object):
               "timestamp": event["timestamp"]
           }
           if "is_final_item" in event: trimmed_event["is_final_item"] = event["is_final_item"]
-          if not self._itemDb.is_potion(iid):
+          if not self._itemDb.is_potion_or_trinket(iid):
             build["itemEvents"].append(trimmed_event)
         elif eventType == "ITEM_UNDO":
           items_undone[pid] += 1
