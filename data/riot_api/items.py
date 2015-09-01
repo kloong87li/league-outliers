@@ -40,7 +40,8 @@ class RiotItems(object):
     3361,
     3362,
     3363,
-    3364
+    3364,
+    2041
   ]
 
   _GROUP_BLACKLIST = [
@@ -118,5 +119,24 @@ class RiotItems(object):
     return False
 
   def is_potion_or_trinket(self, iid):
-    return int(iid) in RiotItems._FINAL_ITEM_BLACKLIST
+    return int(iid) in [
+      2004,
+      2003,
+      2044,
+      2043,
+      2140,
+      2139,
+      2138,
+      2137,
+      2009,
+      2010,
+      3599, # kalista spear thing
+      3340,
+      3341,
+      3342,
+      3361,
+      3362,
+      3363,
+      3364,
+    ]
 
