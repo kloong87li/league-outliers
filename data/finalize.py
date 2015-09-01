@@ -149,13 +149,14 @@ def main(argv):
   input_coll = outliers_db[args.i]
   output_coll = outliers_db[args.o]
 
-  output_coll.drop();
+  output_coll.drop()
+  output_coll.create_index("value.championId")
 
   print "Grouping for order deltas..."
-  input_coll.map_reduce(ORDER_DELTA_MAP_FN, DELTA_REDUCE_FN, out=SON([('replace', args.o)]))
+  input_coll.map_reduce(ORDER_DELTA_MAP_FN, DELTA_REDUCE_FN, out=SON([('replace', args.o)]), sort={"value.championId": 1})
   for i in xrange(0, 6):
     print "Grouping for item deltas with index %d" % i
-    output_coll.map_reduce(ITEM_DELTA_MAP_FN, DELTA_REDUCE_FN, out=SON([('replace', args.o)]),
+    output_coll.map_reduce(ITEM_DELTA_MAP_FN, DELTA_REDUCE_FN, out=SON([('replace', args.o)], sort={"value.championId": 1}),
       scope={"_index": i}
     )
 

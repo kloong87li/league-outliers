@@ -97,6 +97,9 @@ class MatchWorker(Worker):
       
       # Consolidate build, runes, masteries, etc into separate db's
       for p in participants:
+        if len(p["build"]["finalBuild"]) < 2:
+          continue
+          
         build_id = self._process_and_insert_build(p)
         p["build"] = build_id
 

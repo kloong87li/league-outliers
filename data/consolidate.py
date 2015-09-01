@@ -411,6 +411,7 @@ def main(argv):
   print "Reseting output collections..."
   output_coll.drop()
   temp_coll.drop()
+  output_coll.create_index("value.championId")
 
   # Perform aggregation
   for i in xrange (5, 1, -1):
@@ -418,10 +419,12 @@ def main(argv):
     input_coll.aggregate(pipeline(i, i==5), allowDiskUse=True)
     if i != 5:
       print "Merging with output collection through map-reduce..."
-      temp_coll.map_reduce(PARTIAL_MAP_FN, PARTIAL_REDUCE_FN, out=SON([('reduce', args.o)]))
+      temp_coll.map_reduce(PARTIAL_MAP_FN, PARTIAL_REDUCE_FN, out=SON([('reduce', args.o)]),
+        sort={"_id": 1})
 
   print "Finalizing results via map-reduce..."
-  output_coll.map_reduce(FINALIZE_MAP_FN, FINALIZE_REDUCE_FN, out=SON([('replace', args.o)]))
+  output_coll.map_reduce(FINALIZE_MAP_FN, FINALIZE_REDUCE_FN, out=SON([('replace', args.o)]),
+      sort={"_id": 1})
 
   print "Done!"
   print "...dropping temp collections."
