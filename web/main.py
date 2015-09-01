@@ -51,7 +51,7 @@ class CommonBuilds(Resource):
     })
     results = transform_build(results["value"]["common"])
     if len(results):
-      return {"data": {"value:": json.loads(toJson(results))}}, 200
+      return {"data": {"value": json.loads(toJson(results))}}, 200
     else:
       return "NOT FOUND", 404
 
@@ -63,7 +63,7 @@ class OutlierBuilds(Resource):
     json_results = []
     for result in results["value"]["outliers"]:
       json_results.append(transform_build(result))
-    return {"data": {"value:": json.loads(toJson(json_results))}}, 200
+    return {"data": {"value": json.loads(toJson(json_results))}}, 200
 
 
 
